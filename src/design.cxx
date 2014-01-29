@@ -341,9 +341,9 @@ int sann::init()
 	return 1;
 }
 
-sann::sann(alglib::decisionforest df, std::vector<std::string> seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
+sann::sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
 {	
-	this->df = df;
+	this->dfs = dfs;
 	
 	// read sequence file
 	for(unsigned int i=0; i<seqs.size(); i++) this->seqs.push_back( string_to_array(seqs[i]) );
@@ -545,14 +545,14 @@ double sann::energy(linker_set link)
 	
 	for(unsigned int i=0; i<dfs.size(); i++)
 	{
-		dfprocess(df, vars, probs);
-		e *= probs[1];
+		dfprocess(dfs[i], vars, probs);
+		e *= probs[0];
 	}
 	
 	delete[] seq;
 	delete[] counts;
 	
-	return e;
+	return 1.0-e;
 }
 
 int sann::update_best(linker_set links, double energy)

@@ -239,7 +239,7 @@ class sann
 		 * @param n_c Number of candidates to be generated in each annealing step
 		 * @param n_bins Number of bins for the ELP histograms
 		 */
-		sann(alglib::decisionforest df, std::vector<std::string> seqs, int iter_max=500, int max_link=8, 
+		sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seqs, int iter_max=500, int max_link=8, 
 				int n_c=100, int n_bins=64, int n_best=8);
 		
 		/**

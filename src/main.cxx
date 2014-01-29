@@ -77,13 +77,16 @@ int main (int argc, char* argv[])
 	alglib::real_2d_array data;
 	ifstream in_mod_file;
 	ofstream out_mod_file;
-	trainer rf;
+	trainer rf(NTREE);
 	alglib::dfreport rep;
 	alglib::ae_int_t info;
 	
 	for(unsigned int i=5; i<argc; i++)
 	{
-		mod_path = "model_" + argv[i] + ".txt";
+		mod_path = data_dir;
+		mod_path += "/model_";
+		mod_path += argv[i];
+		mod_path += ".txt";
 		in_mod_file.open(mod_path);
 		if(in_mod_file.is_open())
 		{
@@ -93,20 +96,26 @@ int main (int argc, char* argv[])
 			in_mod_file>>sd_err;
 			in_mod_file>>train_err;
 			
-			while(!mod_file.eof())
+			while(!in_mod_file.eof())
 			{
-				std::getline(mod_file, tmp);
+				std::getline(in_mod_file, tmp);
 				df_serialized += tmp;
 			}
 			
 			in_mod_file.close();
 			dfunserialize(df_serialized, df);
-			dfs.push_back(dfs);
+			dfs.push_back(df);
 		}
 		else
 		{
-			pos_path = "pos_" + argv[i] + ".txt";
-			neg_path = "neg_" + argv[i] + ".txt";
+			pos_path = data_dir;
+			pos_path += "/pos_";
+			pos_path += argv[i];
+			pos_path += ".txt";
+			neg_path = data_dir;
+			neg_path += "/neg_";
+			neg_path += argv[i];
+			neg_path += ".txt";
 			data = read_vars( pos_path, neg_path ); 
 			if(data.rows() == 0)
 			{
@@ -114,7 +123,7 @@ int main (int argc, char* argv[])
 				return 0;
 			}
 			
-			cout<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables...";
+			cout<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides...";
 			cout.flush();
 			
 			rf = trainer(NTREE);
@@ -132,17 +141,20 @@ int main (int argc, char* argv[])
 			train_err = rep.relclserror;
 			
 			// Save model
-			mod_path = "model_" + argv[i] + ".txt";
+			mod_path = data_dir;
+			mod_path += "/model_";
+			mod_path += argv[i];
+			mod_path += ".txt";
 			cout<<"Saved model and error estimates to "<<mod_path<<"."<<endl;
-			out_mod_file(mod_path);
+			out_mod_file.open(mod_path);
 			est_type = CV?"cv":"bootstrap";
-			mod_file<<est_type<<'\t';
-			mod_file<<mean_err<<'\t';
-			mod_file<<sd_err<<'\t';
-			mod_file<<train_err<<endl;
+			out_mod_file<<est_type<<'\t';
+			out_mod_file<<mean_err<<'\t';
+			out_mod_file<<sd_err<<'\t';
+			out_mod_file<<train_err<<endl;
 			dfserialize(df, df_serialized);
-			mod_file<<df_serialized;
-			mod_file.close();
+			out_mod_file<<df_serialized;
+			out_mod_file.close();
 		}
 		
 		// Some diagnosis
@@ -159,7 +171,7 @@ int main (int argc, char* argv[])
 	start = omp_get_wtime();
 
 	vector<string> seqs = read_seq(seq_path);
-	sann opt(dfs, seqs, n_iter, n_linker, 100, NTREE);
+	sann opt(dfs, seqs, n_iter, n_linker, 100, 32);
 	cout<<"Initial solution:"<<endl<<opt<<endl;
 	
 	
@@ -180,10 +192,13 @@ int main (int argc, char* argv[])
 	{
 		opt.anneal();
 		
-		if( (i+1)%100==0 )
+		if( (i+1)%50==0 )
 		{ 
+			
 			cout<<"        \r";
 			cout<<opt;
+			
+			//cout<<opt.get_state()<<endl<<endl;
 			cout.flush();
 		}
 		
