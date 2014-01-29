@@ -187,7 +187,7 @@ class sann
 		int n_candidates;
 		int n_best;
 		int accepted, iter, iter_max;
-		alglib::decisionforest df;
+		std::vector<alglib::decisionforest> dfs;
 		std::vector<linker_set> candidates;
 		std::vector<double> energies;
 		

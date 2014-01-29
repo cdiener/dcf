@@ -530,6 +530,7 @@ double sann::energy(linker_set link)
 {
 	int* seq = assemble_seq(link);
 	int* counts;
+	double e = 1.0;
 	alglib::real_1d_array vars, probs;
 	vars.setlength(n_var);
 	
@@ -542,12 +543,16 @@ double sann::energy(linker_set link)
 	vars[5] = logP(seq, counts);
 	for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = counts[j-n_var+20];
 	
-	dfprocess(df, vars, probs);
+	for(unsigned int i=0; i<dfs.size(); i++)
+	{
+		dfprocess(df, vars, probs);
+		e *= probs[1];
+	}
 	
 	delete[] seq;
 	delete[] counts;
 	
-	return probs[1];
+	return e;
 }
 
 int sann::update_best(linker_set links, double energy)
