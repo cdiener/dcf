@@ -60,7 +60,7 @@ int main (int argc, char* argv[])
 
 		return 1;
 	}
-
+	
 	string seq_path = argv[1];
 	int n_linker = atoi(argv[2]);
 	int n_iter = atoi(argv[3]);
@@ -156,6 +156,7 @@ int main (int argc, char* argv[])
 			out_mod_file<<df_serialized;
 			out_mod_file.close();
 		}
+		endwin();
 		
 		// Some diagnosis
 		cout<<"Training set classification error: "<<train_err<<endl;
@@ -181,13 +182,34 @@ int main (int argc, char* argv[])
 		elog.open("log.txt");
 		if(!elog.is_open())
 		{	
-			cout<<"Log file could not be opened!"<<endl; 
+			cerr<<"Log file could not be opened!"<<endl; 
 			return 0;
 		}
 		elog<<"iter\tsamples\taccepted\tcurrent_E\tbest_E"<<endl; 
 		elog<<"0\t0\t0\t"<<opt.current_energy()<<'\t'<<opt.get_best_energy()<<endl;
 	}
 	
+	#ifdef CURSES_HAVE_CURSES_H
+	initscr();
+	noecho();
+	nocbreak();
+	curs_set(0);
+	refresh();
+	
+	for(unsigned int i=0; i<n_iter; i++)
+	{
+		opt.anneal();
+		
+		if( (i+1)%20==0 )
+		{ 
+			opt.get_state();
+		}
+		
+		if(E_LOG)
+			elog<<i+1<<'\t'<<(i+1)*100<<'\t'<<opt.get_accepted()<<'\t'<<opt.current_energy()<<'\t'<<opt.get_best_energy()<<endl;
+	}
+	endwin();
+	#else
 	for(unsigned int i=0; i<n_iter; i++)
 	{
 		opt.anneal();
@@ -205,6 +227,8 @@ int main (int argc, char* argv[])
 		if(E_LOG)
 			elog<<i+1<<'\t'<<(i+1)*100<<'\t'<<opt.get_accepted()<<'\t'<<opt.current_energy()<<'\t'<<opt.get_best_energy()<<endl;
 	}
+	#endif
+	
 	
 	if(E_LOG) elog.close();
 
@@ -220,6 +244,10 @@ int main (int argc, char* argv[])
 	end = omp_get_wtime();	
 	time_s = end-start;
 	cout<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for optimization."<<endl;
+
+	#ifdef CURSES_HAVE_CURSES_H
+		endwin();
+	#endif
 
 	return 0;
 }

@@ -23,8 +23,14 @@
 
 #include "alglib/ap.h"
 #include "alglib/dataanalysis.h"
+#include "sys_config.h"
 #include <string>
 #include <queue>
+
+//Whether we can use curses for nicer output
+#ifdef CURSES_HAVE_CURSES_H
+#include <curses.h>
+#endif
 
 /**
 General prototypes and definitions.

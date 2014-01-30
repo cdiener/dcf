@@ -655,8 +655,70 @@ std::string sann::sub_to_string()
 	return out.str();
 }
 
+#ifdef CURSES_HAVE_CURSES_H
 std::string sann::get_state()
 {
+	int rows, cols, lower, upper, left, right, nbin;
+	nbin = (E_up-E_low)/step;
+	getmaxyx(stdscr, rows, cols);
+	lower = std::min(rows-10, 16);
+	upper = 5;
+	left = 5;
+	right = std::min(cols-left, nbin+left);
+	clear();
+	refresh();
+	
+	int max_hist=0;
+	for(unsigned int i=0; i<nbin; i++) if(hist[i]>max_hist) max_hist = hist[i];
+	
+	mvaddch(0, left, ACS_DIAMOND);
+	mvprintw(0, left+1, "Iteration #%d (%d configurations tested, %d accepted)", iter, iter*n_candidates, accepted);
+	double scale = 1.0/n_candidates + (1.0 - 2.0/n_candidates)*iter/iter_max; 
+	scale = ( log(scale*n_candidates) - log(1.0-scale) )/E_c;
+	mvprintw(1, left+1, "Energy scaling: %g, ELP influence: %d%%", scale, (int)round(ELP*100.0));
+	mvprintw(3, left, "ELP histogram");
+	
+	mvaddch(upper, left, ACS_UARROW);
+	mvaddstr(upper, left-2, "E");
+	for(unsigned int i=upper+1; i<lower; i++) mvaddch(i, left, ACS_VLINE);
+	mvaddch(lower,left, ACS_LLCORNER);
+	mvaddstr(lower+1, left, "0");
+	mvaddstr(lower+1, right, "1");
+	for(unsigned int i=left+1; i<right; i++) mvaddch(lower, i, ACS_HLINE);
+	mvaddch(lower, right, ACS_RARROW);
+	
+	double w = right-left;
+	double h = lower-upper;
+	
+	for(unsigned int i=h; i>0; i--)
+	{
+		for(unsigned int j=0; j<nbin; j++)
+		{
+			if( hist[j]>=i*max_hist/(double)h ) mvaddch(lower-i, left+1+j/(double)nbin*w, ACS_CKBOARD);
+		}
+	}	
+	
+	std::ostringstream out;
+	out<<"Modifications: ";
+	for(unsigned int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<100.0*link_idx[i]/accepted<<"%% ";
+	out<<std::endl<<"\t\t(";
+	out<<100.0*action_idx[0]/accepted<<"%% additions, ";
+	out<<100.0*action_idx[1]/accepted<<"%% changes, ";
+	out<<100.0*action_idx[2]/accepted<<"%% deletions";
+	out<<")";
+	std::string tmp_str = out.str(); 
+	mvprintw(lower+3, left, tmp_str.c_str() );
+	mvprintw(lower+6, left, "E: %g (best: %g)", current.energy, best_energy);
+	
+	refresh();
+	
+	return std::string();
+}
+
+#else
+std::string sann::get_state()
+{
+	
 	std::ostringstream out;
 	out<<"--> Iteration #"<<iter<<" ("<<iter*n_candidates<<" configurations tested, "<<accepted<<" accepted)"<<std::endl;
 	
@@ -704,6 +766,7 @@ std::string sann::get_state()
 	
 	return out.str();
 }
+#endif
 
 std::ostream& operator<<(std::ostream& out, sann& opt)
 {
