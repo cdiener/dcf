@@ -364,6 +364,13 @@ class sann
 		 */
 		std::string get_state();
 		
+		#ifdef CURSES_HAVE_CURSES_H
+		/**
+		 * Gets detailed diagnostics in a nice curses output
+		 */
+		void get_curses();
+		#endif  
+		
 		/**
 		 * Gets current energy value
 		 */

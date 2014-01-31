@@ -656,7 +656,7 @@ std::string sann::sub_to_string()
 }
 
 #ifdef CURSES_HAVE_CURSES_H
-std::string sann::get_state()
+void sann::get_curses()
 {
 	int rows, cols, lower, upper, left, right, nbin;
 	nbin = (E_up-E_low)/step;
@@ -694,7 +694,7 @@ std::string sann::get_state()
 	{
 		for(unsigned int j=0; j<nbin; j++)
 		{
-			if( hist[j]>=i*max_hist/(double)h ) mvaddch(lower-i, left+1+j/(double)nbin*w, ACS_CKBOARD);
+			if( hist[j]>=i*max_hist/(double)h ) mvaddch(lower-i, left+1+j/(double)nbin*w, (char)254);
 		}
 	}	
 	
@@ -711,11 +711,9 @@ std::string sann::get_state()
 	mvprintw(lower+6, left, "E: %g (best: %g)", current.energy, best_energy);
 	
 	refresh();
-	
-	return std::string();
 }
+#endif
 
-#else
 std::string sann::get_state()
 {
 	
@@ -766,7 +764,6 @@ std::string sann::get_state()
 	
 	return out.str();
 }
-#endif
 
 std::ostream& operator<<(std::ostream& out, sann& opt)
 {

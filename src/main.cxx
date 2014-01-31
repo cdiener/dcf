@@ -1,6 +1,6 @@
 /*
  * main.cxx
- * This file is part of cppdesigner
+ * This file is part of modes
  *
  * Copyright (C) 2013 - Christian Diener
  *
@@ -202,7 +202,7 @@ int main (int argc, char* argv[])
 		
 		if( (i+1)%20==0 )
 		{ 
-			opt.get_state();
+			opt.get_curses();
 		}
 		
 		if(E_LOG)
@@ -244,10 +244,6 @@ int main (int argc, char* argv[])
 	end = omp_get_wtime();	
 	time_s = end-start;
 	cout<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for optimization."<<endl;
-
-	#ifdef CURSES_HAVE_CURSES_H
-		endwin();
-	#endif
 
 	return 0;
 }
