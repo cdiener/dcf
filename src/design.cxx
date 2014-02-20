@@ -259,7 +259,7 @@ int sann::update_best(const linker_set& links, double energy)
 		for(unsigned int i=0; i<n_link*max_link; i++) new_best.links[i] = links[i];
 		new_best.energy = energy;
 		
-		best.push(new_best);
+		best.push(std::move(new_best));
 		if(best.size() > n_best) best.pop();
 		
 		if(best_energy > energy) best_energy = energy;
