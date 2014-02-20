@@ -89,7 +89,7 @@ class sann
 		solution current;
 		
 		// Best solutions queue
-		std::priority_queue<solution, std::vector<solution>, solution_compare> best;
+		std::vector<solution> best;
 		double best_energy;
 		
 		// Boltzmann sample histograms

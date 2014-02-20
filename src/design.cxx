@@ -249,20 +249,33 @@ double sann::energy(const linker_set& link)
 int sann::update_best(const linker_set& links, double energy)
 {
 	solution worst;
-	if(!best.empty()) worst = best.top();
+	if(!best.empty()) worst = best[0];
 	
 	if( (best.size() < n_best) || (energy < worst.energy) )
 	{
+		if(best_energy > energy) best_energy = energy;
+		
 		solution new_best;
 		new_best.links = std::vector<int>(n_link*max_link);
 		
 		for(unsigned int i=0; i<n_link*max_link; i++) new_best.links[i] = links[i];
 		new_best.energy = energy;
 		
-		best.push(std::move(new_best));
-		if(best.size() > n_best) best.pop();
+		// Check for duplicates
+		for(unsigned int i=0; i<best.size(); i++)
+			if(best[i].links == new_best.links) return 0;
 		
-		if(best_energy > energy) best_energy = energy;
+		if(best.size() < n_best)
+		{
+			best.push_back(std::move(new_best));
+			std::push_heap(best.begin(), best.end(), solution_compare());
+		}
+		else 
+		{
+			std::pop_heap(best.begin(), best.end(), solution_compare());
+			best[best.size()-1] = std::move(new_best);
+			std::push_heap(best.begin(), best.end(), solution_compare());
+		}
 		
 		return 1;
 	}
@@ -274,13 +287,14 @@ std::string sann::get_best(double error, int full_seq)
 {
 	std::ostringstream out;
 	std::vector<solution> sols;
-	std::priority_queue<solution, std::vector<solution>, solution_compare> tmp(best);
+	std::vector<solution> tmp(best);
 	std::vector<int> int_seq;
 	
 	while(!tmp.empty())
 	{ 
-		sols.push_back( tmp.top() );
-		tmp.pop();
+		std::pop_heap(tmp.begin(), tmp.end(), solution_compare());
+		sols.push_back( tmp.back() );
+		tmp.pop_back();
 	}
 	
 	
