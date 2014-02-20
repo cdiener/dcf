@@ -26,4 +26,6 @@
  
 #cmakedefine CURSES_HAVE_CURSES_H
 
+const int n_var = 26; // Number of variables used for classification
+
 #endif

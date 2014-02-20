@@ -22,6 +22,7 @@
 #include <fstream>
 #include <omp.h>
 #include "iztli.h"
+#include "trainer.h"
 #include "design.h"
 
 /**
@@ -123,7 +124,7 @@ int main (int argc, char* argv[])
 				return 0;
 			}
 			
-			cout<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides...";
+			cout<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides";
 			cout.flush();
 			
 			rf = trainer(NTREE);
@@ -156,7 +157,6 @@ int main (int argc, char* argv[])
 			out_mod_file<<df_serialized;
 			out_mod_file.close();
 		}
-		endwin();
 		
 		// Some diagnosis
 		cout<<"Training set classification error: "<<train_err<<endl;
@@ -200,7 +200,7 @@ int main (int argc, char* argv[])
 	{
 		opt.anneal();
 		
-		if( (i+1)%20==0 )
+		if( (i+1)%50==0 )
 		{ 
 			opt.get_curses();
 		}

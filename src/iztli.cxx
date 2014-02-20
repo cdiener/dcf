@@ -24,12 +24,12 @@
 
 // Function implementations 
 
-double Hm(int* seq)
+double Hm(std::vector<int> seq)
 {
 	double hwin, hm=0.0;
-	int w = std::min(seq[0],W);
+	int w = std::min( (int)seq.size() ,W);
 	
-	for(unsigned int i=1; i<=seq[0]-w+1; i++)
+	for(unsigned int i=0; i<=seq.size()-w; i++)
 	{
 		hwin = 0.0;
 
@@ -42,15 +42,15 @@ double Hm(int* seq)
 		hm += hwin/w; 
 	}
 
-	return hm/(seq[0]-w+1);
+	return hm/(seq.size()-w+1);
 }
 
-double charge(int* seq)
+double charge(std::vector<int> seq)
 {
 	int K,R,D,E;
 	K=R=D=E=0;
 
-	for(unsigned int i=1; i<=seq[0]; i++)
+	for(unsigned int i=0; i<seq.size(); i++)
 	{
 		switch(seq[i])
 		{
@@ -61,10 +61,10 @@ double charge(int* seq)
 		}
 	}
 
-	return ( 1.0*(K+R-D-E) )/( seq[0] ); //1.0 for double conversion
+	return ( 1.0*(K+R-D-E) )/( seq.size() ); //1.0 for double conversion
 }
 
-double charge_var(int* seq)
+double charge_var(std::vector<int> seq)
 {
 	int K,R,D,E;
 	K=R=D=E=0;
@@ -73,9 +73,9 @@ double charge_var(int* seq)
 	cmin = 1.0e32;
 	cmax = 0.0; 
 
-	int w = std::min(seq[0],W);
+	int w = std::min( (int)seq.size(),W);
 
-	for(unsigned int i=1; i<=seq[0]-w+1; i++)
+	for(unsigned int i=0; i<=seq.size()-w; i++)
 	{
 		K=R=D=E=0;		
 		
@@ -99,12 +99,12 @@ double charge_var(int* seq)
 	return cmax-cmin;
 }
 
-double pI(int* seq)
+double pI(std::vector<int> seq)
 {
 	int C,D,E,Y,H,K,R;
 	C=D=E=Y=H=K=R=0;
 
-	for(unsigned int i=1; i<=seq[0]; i++)
+	for(unsigned int i=0; i<seq.size(); i++)
 	{
 		switch(seq[i])
 		{
@@ -153,15 +153,14 @@ double pI(int* seq)
 	else return pH;
 }
 
-double maxHM(int* seq)
+double maxHM(std::vector<int> seq)
 {
-	int w = std::min(seq[0],W);
+	int w = std::min( (int)seq.size() ,W);
 	double Hcos, Hsin, Hup, Hlow;
-	double* Hmax = new double[seq[0]-w+1];
-	for(unsigned int i=0; i<seq[0]-w+1; i++) Hmax[i] = 0.0;
+	std::vector<double> Hmax = std::vector<double>(seq.size()-w+1, 0.0);
 	Hcos = Hsin = 0.0;
-	double* cos_t = new double[seq[0]]; 
-	double* sin_t = new double[seq[0]];
+	std::vector<double> cos_t(seq.size()); 
+	std::vector<double> sin_t(seq.size());
 
 	Hup = 0.0;
 	Hlow = 1.0e32;	
@@ -171,7 +170,7 @@ double maxHM(int* seq)
 		Hcos = Hsin = 0.0;
 
 		// We build up sine and cosine tables for faster calulation
-		for(unsigned int i=0; i<seq[0]; i++)
+		for(unsigned int i=0; i<seq.size(); i++)
 		{
 			cos_t[i] = cos(i*angle);
 
@@ -181,50 +180,46 @@ double maxHM(int* seq)
 		}
 		
 		//Calculate first window
-		for(unsigned int i=1; i<=w; i++)
+		for(unsigned int i=0; i<w; i++)
 		{
-			Hcos += SCALE[ seq[i] ]*cos_t[i-1];
-			Hsin += SCALE[ seq[i] ]*sin_t[i-1];
+			Hcos += SCALE[ seq[i] ]*cos_t[i];
+			Hsin += SCALE[ seq[i] ]*sin_t[i];
 		}
 		Hmax[0] = std::max(Hmax[0], sqrt(Hcos*Hcos + Hsin*Hsin)/w);
 
 		//Update only non-overlapping window parts
-		for(unsigned int i=2; i<=seq[0]-w+1; i++)
+		for(unsigned int i=1; i<=seq.size()-w; i++)
 		{
-			Hcos += SCALE[ seq[i+w-1] ]*cos_t[i+w-2] - SCALE[ seq[i-1] ]*cos_t[i-2];
-			Hsin += SCALE[ seq[i+w-1] ]*sin_t[i+w-2] - SCALE[ seq[i-1] ]*sin_t[i-2];
+			Hcos += SCALE[ seq[i+w-1] ]*cos_t[i+w-1] - SCALE[ seq[i-1] ]*cos_t[i-1];
+			Hsin += SCALE[ seq[i+w-1] ]*sin_t[i+w-1] - SCALE[ seq[i-1] ]*sin_t[i-1];
 
-			Hmax[i-1] = std::max(Hmax[i-1], sqrt(Hcos*Hcos + Hsin*Hsin)/w);
+			Hmax[i] = std::max(Hmax[i], sqrt(Hcos*Hcos + Hsin*Hsin)/w);
 		}
 	}
 
-	// Calculate mean and standard deviation 
+	// Calculate range 
 
 	double delta;
-	for(unsigned int i=0; i<seq[0]-w+1; i++)
+	for(unsigned int i=0; i<seq.size()-w+1; i++)
 	{
 		Hup = std::max(Hup, Hmax[i]);
 		Hlow = std::min(Hlow, Hmax[i]);
 	}
 
-	delete[] cos_t;
-	delete[] sin_t;
-	delete[] Hmax;
-
 	return Hup-Hlow;
 }
 
-int* countAA(int* seq)
+std::vector<int> countAA(std::vector<int> seq)
 {
-	int* counts = new int[20];
-	for(unsigned int i=0; i<20; i++) counts[i] = 0;
+	std::vector<int> counts(20, 0);
+	//for(unsigned int i=0; i<20; i++) counts[i] = 0;
 
-	for(unsigned int i=1; i<=seq[0]; i++) counts[ seq[i] ]++;
+	for(unsigned int i=0; i<seq.size(); i++) counts[ seq[i] ]++;
 
 	return counts;
 }
 
-double logP(int* seq, int* counts)
+double logP(std::vector<int> seq, std::vector<int> counts)
 {
 	double logP = logP_coef[0];
 
@@ -233,13 +228,12 @@ double logP(int* seq, int* counts)
 	return logP;
 }
 
-int* string_to_array(std::string seq)
+std::vector<int> string_to_array(std::string seq)
 {
 	unsigned int n = seq.size();
-	int* out = new int[n+1];
-	out[0] = n;
+	std::vector<int> out(n);
 
-	for(unsigned int i=1; i<=n; i++) out[i] = AAmap.find( seq[i-1] )->second;
+	for(unsigned int i=0; i<n; i++) out[i] = AAmap.find( seq[i] )->second;
 
 	return out; 
 }

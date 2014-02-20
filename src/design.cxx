@@ -20,280 +20,15 @@
 
 #include "design.h"
 #include "iztli.h"
-#include <vector>
-#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <omp.h>
 
-// Classification functions
-
-alglib::real_2d_array read_vars(std::string pos, std::string neg)
-{
-	std::vector<std::string> pos_seq, neg_seq;
-	double collector;
-	int *seq, *counts;
-	int j;
-	alglib::real_2d_array full;
-
-	//Read sequences
-	pos_seq = read_seq(pos);
-	neg_seq = read_seq(neg);
-	
-	if(pos_seq.size() == 0 || neg_seq.size() == 0) 
-	{
-		std::cerr<<"No sequences loaded!"<<std::endl;
-		throw 0;
-	}
-	
-	full.setlength(pos_seq.size()+neg_seq.size(), n_var+1);
-	
-	for(unsigned int i=0; i<pos_seq.size(); i++)
-	{
-		// Calculate iztli parameters
-		seq = string_to_array(pos_seq[i]);
-		full[i][0] = charge(seq);
-		full[i][1] = Hm(seq);
-		full[i][2] = pI(seq);
-		full[i][3] = maxHM(seq);
-		full[i][4] = charge_var(seq);
-		counts = countAA(seq);
-		full[i][5] = logP(seq, counts);
-		for(unsigned int j=6; j<26; j++) full[i][j] = counts[j-6];
-
-		delete seq, counts;
-
-		// Mark as positive class
-		full[i][n_var] = 0.0;
-	}
-
-	for(unsigned int i=pos_seq.size(); i<pos_seq.size()+neg_seq.size(); i++)
-	{
-		// Calculate iztli parameters
-		seq = string_to_array( neg_seq[i-pos_seq.size()] );
-		full[i][0] = charge(seq);
-		full[i][1] = Hm(seq);
-		full[i][2] = pI(seq);
-		full[i][3] = maxHM(seq);
-		full[i][4] = charge_var(seq);
-		counts = countAA(seq);
-		full[i][5] = logP(seq, counts);
-		for(unsigned int j=6; j<26; j++) full[i][j] = counts[j-6];
-
-		delete seq, counts;
-
-		// Mark as negative class
-		full[i][n_var] = 1.0;
-	}
-
-	return full;
-} 
-
-class_set::class_set()
-{
-	srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
-}
-
-void class_set::generate(alglib::real_2d_array data, double train_frac)
-{
-	std::vector<int> idx( data.rows() );
-	for(unsigned int i=0; i<data.rows(); i++) idx[i] = i;
-  	
-	std::random_shuffle( idx.begin(), idx.end() );
-
-	int n_train = std::round( train_frac*data.rows() );
-	this->train.setlength( n_train, data.cols() );
-	this->test.setlength( data.rows()-n_train, data.cols() );
-
-	for(unsigned int i=0; i<n_train; i++)
-		for(unsigned int j=0; j<data.cols(); j++) this->train[i][j] = data[ idx[i] ][j];
-
-	for(unsigned int i=0; i<data.rows()-n_train; i++)
-		for(unsigned int j=0; j<data.cols(); j++) this->test[i][j] = data[ idx[i+n_train] ][j];
-
-	this->n_train = n_train;
-	this->n_test = data.rows()-n_train;
-}
-
-void class_set::bootstrap(alglib::real_2d_array data, int n)
-{
-	std::vector<int> idx( data.rows(), 0 );
-	this->train.setlength( n, data.cols() );
-	int not_used=0;
-	
-	// We want to unsure that the test set has at least 3 entries
-	while(not_used < 3)
-	{
-		for(unsigned int i=0; i<data.rows(); i++) idx[alglib::randominteger(idx.size())]++;
-		not_used = 0;
-		for(unsigned int i=0; i<data.rows(); i++) if(idx[i]==0) not_used++;
-		if(not_used<3) continue;
-	
-		this->test.setlength( not_used, data.cols() );
-		
-		int train_i = 0, test_i = 0;
-		for(unsigned int i=0; i<data.rows(); i++)
-		{
-			if( idx[i]>0 )
-			{
-				for(unsigned int j=0; j<idx[i]; j++) 
-					for(unsigned int k=0; k<data.cols(); k++) this->train[train_i+j][k] = data[i][k];
-				train_i += idx[i];
-			}
-			else
-			{
-				for(unsigned int k=0; k<data.cols(); k++) test[test_i][k] = data[i][k];
-				test_i++;
-			}
-		}
-	}
-		
-}
-
-void trainer::bootstrap(alglib::real_2d_array data, int rep)
-{
-	if(reset)
-	{
-		errors.resize(0);
-		models.resize(0);
-	}
-	
-	#pragma omp parallel
-	{
-		alglib::decisionforest df;
-		alglib::dfreport dfrep;
-		alglib::ae_int_t info;
-		class_set boot;
-		double err;
-		
-		#pragma omp for
-		for(unsigned int i=0; i<rep; i++)
-		{
-			boot.bootstrap(data, (int)data.rows());
-			dfbuildrandomdecisionforest( boot.train, boot.train.rows(), n_var, 2, n_tree, R, info, df, dfrep);
-			err = 0.632*dfrelclserror(df, boot.test, boot.test.rows()) + 0.368*dfrep.relclserror;
-			#pragma omp critical 
-			{
-			errors.push_back(err);
-			models.push_back(df);
-			}
-		}
-	}
-}
-
-void trainer::cv(alglib::real_2d_array data, int folds)
-{
-	srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
-	
-	if(reset)
-	{
-		errors.resize(0);
-		models.resize(0);
-	}
-		
-	std::vector<int> idx( data.rows() );
-	for(unsigned int i=0; i<data.rows(); i++) idx[i] = i;
-  	std::random_shuffle( idx.begin(), idx.end() );
-	
-	#pragma omp parallel
-	{
-		alglib::decisionforest df;
-		alglib::dfreport dfrep;
-		alglib::ae_int_t info;
-		alglib::real_2d_array test, train;
-		std::vector<int> tmp_idx;
-		double err;
-		int start, end;
-		
-		#pragma omp for
-		for(unsigned int i=0; i<folds; i++)
-		{
-			tmp_idx = idx;
-			// Decide for the test set
-			start = i*floor(data.rows()/folds);
-			if(i<folds-1) end = (i+1)*floor(data.rows()/folds);
-			else end = data.rows();
-			test.setlength(end-start, data.cols());
-
-			for(unsigned int k=0; k<test.rows(); k++)
-			{
-				for(unsigned int j=0; j<data.cols(); j++) test[k][j] = data[ idx[start+k] ][j];
-			}
-			tmp_idx.erase(tmp_idx.begin()+start, tmp_idx.begin()+end);
-				
-			// Generate the training set
-			train.setlength(tmp_idx.size(), data.cols());
-			
-			for(unsigned int k=0; k<tmp_idx.size(); k++)
-				for(unsigned int j=0; j<data.cols(); j++) train[k][j] = data[ tmp_idx[k] ][j]; 
-			
-			dfbuildrandomdecisionforest( train, train.rows(), n_var, 2, n_tree, R, info, df, dfrep);
-			err = dfrelclserror(df, test, test.rows());
-			
-			#pragma omp critical 
-			{
-				errors.push_back(err);
-				models.push_back(df);
-			}
-		}
-	}
-}
-
-void trainer::rep_cv(alglib::real_2d_array data, int rep, int folds)
-{
-	if(reset)
-	{
-		errors.resize(0);
-		models.resize(0);
-		reset = 0;
-	}
-	
-	for(unsigned int i=0; i<rep; i++) this->cv(data, folds);
-	reset = 1;
-}
-
-double trainer::mean_error()
-{
-	double me=0;
-	
-	for(unsigned int i=0; i<errors.size(); i++) me += errors[i];
-	
-	return me/errors.size();
-}
-
-double trainer::sd_error()
-{
-	double sde=0, me = mean_error();
-	if(errors.size()<2) return -1;
-	
-	for(unsigned int i=0; i<errors.size(); i++) sde += (errors[i] - me)*(errors[i] - me);
-	
-	return sqrt(sde)/(errors.size()-1);
-}
-
-double trainer::min_error()
-{
-	double mine=HUGE_VAL;
-	
-	for(unsigned int i=0; i<errors.size(); i++) if(errors[i] < mine) mine = errors[i];
-	
-	return mine;
-}
-
-alglib::decisionforest trainer::best_model()
-{
-	double mine = HUGE_VAL;
-	alglib::decisionforest best = models[0];
-	for(unsigned int i=1; i<errors.size(); i++) if(errors[i]<mine) best = models[i];
-	
-	return best;
-}
-
 // SANN implementations
 
 template <class number_type>
-int sann::sample_idx(number_type* cweights, int n)
+int sann::sample_idx(const std::vector<number_type>& cweights, int n)
 {	
 		double rn = alglib::randomreal();
 		
@@ -324,23 +59,6 @@ int sann::ELP_idx(double energy)
 	else return floor( (energy-E_low)/step );
 }
 
-int sann::init()
-{
-	//Check some allocations and reset optimizer
-	
-	if( hist == nullptr ) return 0;
-	int n_bins = (int) (E_up-E_low)/step + 1;
-	for(unsigned int i=0; i<n_bins; i++) hist[i] = 0;
-	if( link_idx == nullptr ) return 0;
-	for(unsigned int i=0; i<n_link; i++) link_idx[i] = 0;
-	action_idx[0] = action_idx[1] = action_idx[2] = 0;
-	accepted = iter = 0;
-	if(candidates.empty()) return 0;
-	if(subs.empty()) return 0;
-	
-	return 1;
-}
-
 sann::sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
 {	
 	this->dfs = dfs;
@@ -358,11 +76,10 @@ sann::sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seq
 	E_low = 0.0;
 	this->n_bins = n_bins;
 	step = (E_up - E_low)/n_bins;
-	hist = new int[n_bins];
+	hist = std::vector<int>(n_bins, 0);
 	
 	// solutions init
-	current.links = new int[n_link*max_link];
-	for(unsigned int i=0; i<n_link*max_link; i++) current.links[i] = 20;
+	current.links = std::vector<int>(n_link*max_link, 20);
 	
 	//Get initial solution
 	current.energy = energy(current.links);
@@ -370,47 +87,26 @@ sann::sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seq
 	update_best(current.links, current.energy);
 	
 	//Boltzmann init
-	link_idx = new int[n_link];
+	link_idx = std::vector<int>(n_link, 0);
+	
+	//Action init
+	action_idx = std::vector<int>(3,0);
 	
 	this->iter_max = iter_max;
 	
+	// Innitialize random number seeds (different for each thread)
 	#pragma omp parallel
 	{
-	srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
+		srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
 	}
-	
-	candidates.resize(n_candidates);
-	for(unsigned int i=0; i<n_candidates; i++)
-	{
-		candidates[i] = new int[n_link*max_link+2];
-	}
+		
+	candidates = std::vector<std::vector<int> >(n_candidates, std::vector<int>(n_link*max_link+2, 20) );
 	energies.resize(n_candidates+1);
 	
 	// subs init
 	read_blosum("blosum80.qij");
 	
-	if( !init() )
-	{ 
-		std::cerr<<"Could not initialize!"<<std::endl;
-		return;
-	}
-}
-
-sann::~sann()
-{
-	delete[] this->hist;
-	delete[] this->link_idx;
-	if(subs.size()>0) for(unsigned int i=0; i<20; i++) delete[] subs[i];
-	for(unsigned int i=0; i<n_candidates; i++) delete[] (candidates[i]);
-	
-	solution tmp;
-	while(!best.empty())
-	{
-		tmp = best.top();
-		delete[] tmp.links;
-		
-		best.pop();
-	}
+	accepted = iter = 0;
 }
 
 void sann::read_blosum(std::string file)
@@ -422,7 +118,7 @@ void sann::read_blosum(std::string file)
 	
 	// Init subs
 	subs.resize(20);
-	for(unsigned int i=0; i<20; i++) subs[i] = new double[20];
+	for(unsigned int i=0; i<20; i++) subs[i] = std::vector<double>(20);
 
 	// skip comments
 	while(in.peek() == '#')
@@ -469,7 +165,7 @@ void sann::read_blosum(std::string file)
 	}
 }
 
-int sann::link_size(linker_set links, int idx)
+int sann::link_size(const linker_set& links, int idx)
 {
 	int stride = idx*max_link;
 	
@@ -484,22 +180,21 @@ int sann::link_size(linker_set links, int idx)
 	return i;
 }
 
-int* sann::assemble_seq(linker_set link)
+std::vector<int> sann::assemble_seq(const linker_set& link)
 {   
 	int length = 0;
-	int write_idx = 1;
-	int* l_link = new int[n_link];
+	int write_idx = 0;
+	std::vector<int> l_link = std::vector<int>(n_link);
 	
 	for(unsigned int i=0; i<n_link; i++) l_link[i] = link_size(link, i);
 	
 	for(unsigned int i=0; i<n_link; i++)
 	{
 		length += l_link[i];
-		if(i<n_link-1) length += seqs[i][0];
+		if(i<n_link-1) length += seqs[i].size();
 	}
 	
-	int* seq = new int[length+1];
-	seq[0] = length;
+	std::vector<int> seq = std::vector<int>(length);
 	
 	for(unsigned int i=0; i<n_link; i++)
 	{
@@ -508,30 +203,29 @@ int* sann::assemble_seq(linker_set link)
 		
 		if(i<n_link-1)
 		{
-			for(unsigned int j=1; j<=seqs[i][0]; j++) seq[write_idx+j-1] = seqs[i][j];
-			write_idx += seqs[i][0];
+			for(unsigned int j=0; j<seqs[i].size(); j++) seq[write_idx+j] = seqs[i][j];
+			write_idx += seqs[i].size();
 		}
 	}
-	
-	delete[] l_link;
 	
 	return seq;
 }
 
-std::string sann::get_seq(int* int_seq)
+std::string sann::get_seq(const std::vector<int>& int_seq)
 {
 	std::string out;
 	
-	for(unsigned int i=1; i<=int_seq[0]; i++) out += AA[ int_seq[i] ];
+	for(unsigned int i=0; i<int_seq.size(); i++) out += AA[ int_seq[i] ];
 	return out;
 }
 
-double sann::energy(linker_set link)
+double sann::energy(const linker_set& link)
 {
-	int* seq = assemble_seq(link);
-	int* counts;
+	std::vector<int> seq = assemble_seq(link);
+	std::vector<int> counts;
 	double e = 1.0;
-	alglib::real_1d_array vars, probs;
+	alglib::real_1d_array vars;
+	alglib::real_1d_array probs;
 	vars.setlength(n_var);
 	
 	vars[0] = charge(seq);
@@ -549,13 +243,10 @@ double sann::energy(linker_set link)
 		e *= probs[0];
 	}
 	
-	delete[] seq;
-	delete[] counts;
-	
 	return 1.0-e;
 }
 
-int sann::update_best(linker_set links, double energy)
+int sann::update_best(const linker_set& links, double energy)
 {
 	solution worst;
 	if(!best.empty()) worst = best.top();
@@ -563,18 +254,13 @@ int sann::update_best(linker_set links, double energy)
 	if( (best.size() < n_best) || (energy < worst.energy) )
 	{
 		solution new_best;
+		new_best.links = std::vector<int>(n_link*max_link);
 		
-		new_best.links = new int[n_link*max_link];
 		for(unsigned int i=0; i<n_link*max_link; i++) new_best.links[i] = links[i];
 		new_best.energy = energy;
 		
 		best.push(new_best);
-		if(best.size() > n_best)
-		{
-			 worst = best.top();
-			 best.pop();
-			 delete[] worst.links;
-		}
+		if(best.size() > n_best) best.pop();
 		
 		if(best_energy > energy) best_energy = energy;
 		
@@ -589,7 +275,7 @@ std::string sann::get_best(double error, int full_seq)
 	std::ostringstream out;
 	std::vector<solution> sols;
 	std::priority_queue<solution, std::vector<solution>, solution_compare> tmp(best);
-	int* int_seq = nullptr;
+	std::vector<int> int_seq;
 	
 	while(!tmp.empty())
 	{ 
@@ -620,7 +306,6 @@ std::string sann::get_best(double error, int full_seq)
 		{
 			int_seq = assemble_seq(sols[i].links);
 			out<<get_seq(int_seq)<<"\t ";
-			delete int_seq;
 		}
 		out<<(1.0-error)*(1.0-sols[i].energy)<<std::endl;
 	}
@@ -767,11 +452,10 @@ std::string sann::get_state()
 
 std::ostream& operator<<(std::ostream& out, sann& opt)
 {
-	int* int_seq = opt.assemble_seq( opt.current.links );
+	std::vector<int> int_seq = opt.assemble_seq( opt.current.links );
 	
 	out<<"Iter: "<<opt.iter<<" ("<<opt.accepted<<" accepted) | Current: "<<opt.get_seq(int_seq)<<
 			" (E = "<<opt.current.energy<<") | best P(CPP): "<<1.0-opt.best_energy;
-	delete[] int_seq;
 	
 	return out;
 }
@@ -792,7 +476,7 @@ int sann::mutate(int aa)
 	return new_aa;
 }
 
-void sann::cut(linker_set links, int l_idx, int pos)
+void sann::cut(linker_set& links, int l_idx, int pos)
 {
 	unsigned int i;
 	
@@ -806,11 +490,11 @@ void sann::cut(linker_set links, int l_idx, int pos)
 	return;
 }
 
-void sann::sample_linker(linker_set new_link, linker_set old_link)
+void sann::sample_linker(linker_set& new_link, const linker_set& old_link)
 {
 	for(unsigned int i=0; i<n_link*max_link; i++) new_link[i] = old_link[i];
 	
-	int cum_action[3];
+	std::vector<int> cum_action(3);
 	
 	// First sample which linker to modify
 	int l_i = alglib::randominteger(n_link);
@@ -873,13 +557,12 @@ void sann::sample_linker(linker_set new_link, linker_set old_link)
 }
 
 void sann::anneal()
-{
+{	
 	int h_idx; 
 	int min_idx=-1;
 	double min_E = current.energy;
-	
 	energies[n_candidates] = min_E;
-	double *cum_e = new double[n_candidates+1];
+	std::vector<double> cum_e(n_candidates+1);
 	double scale = 1.0/n_candidates + (1.0 - 2.0/n_candidates)*iter/iter_max; 
 	scale = ( log(scale*n_candidates) - log(1.0-scale) )/E_c; 
 	double w;
@@ -918,7 +601,6 @@ void sann::anneal()
 		if(i>0) cum_e[i] += cum_e[i-1];
 	
 	int new_sol = sample_idx<double>(cum_e, n_candidates+1);
-	delete[] cum_e;
 	
 	if(new_sol < n_candidates)
 	{

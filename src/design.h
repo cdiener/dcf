@@ -25,7 +25,9 @@
 #include "alglib/dataanalysis.h"
 #include "sys_config.h"
 #include <string>
+#include <vector>
 #include <queue>
+//#include <memory>
 
 //Whether we can use curses for nicer output
 #ifdef CURSES_HAVE_CURSES_H
@@ -36,9 +38,6 @@
 General prototypes and definitions.
 */
 
-const double R = 0.6; // Fraction of data used to construct individual trees
-
-const int n_var = 26; //Number of variables used for classification
 const int entropy_add = 8;
 const double E_c = 0.005; // The largest competing energy difference that we still want to accept with P = 1 - min_acc
 const double ELP = 1.0; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values)  
@@ -50,7 +49,7 @@ Helper functions and types
 /**
  * Represents a linker set
  */
-typedef int* linker_set;
+typedef std::vector<int> linker_set;
 
 /**
  * A solution for the optimization
@@ -66,117 +65,6 @@ class solution_compare
 		bool operator() (const solution& a, const solution& b) { return (a.energy<b.energy); }
 };
 
-/* Classification */
-
-/**
-Function that reads positive and negative examples for a classification into the 
-correct data structure.
-
-@param pos Path to positive file.
-@param neg Path to negative file.
-@return The mean hydrophobicity of the sequence
-*/
-alglib::real_2d_array read_vars(std::string pos, std::string neg);
- 
-/**
-Represents a data set for classification consisting of a training and test set.
-*/
-class class_set 
-{
-	public:
-		alglib::real_2d_array train, test;
-
-		/**
-		Function that generates training and test set for classification
-
-		@param data Full classification data.
-		@param train_frac Fraction of full data set used for training (between 0 and 1).
-		*/
-		void generate(alglib::real_2d_array data, double train_frac);
-		
-		/**
-		 * Function that generates a bootstrap sample from the data
-		 * 
-		 * @param data Full classification data.
-		 * @param n Size of bootstrap sample.
-		 */
-		 void bootstrap(alglib::real_2d_array data, int n);
-		 
-		
-		/**
-		Constructors. Only initializes random number seed.
-		*/	
-		class_set();
-		
-		int n_train, n_test;
-};
-
-/**
- * Represents a classification trainer that also approximates the error using bootstrap or cross validation.
- */
-class trainer
-{
-	public:
-		std::vector<alglib::decisionforest> models;
-		std::vector<double> errors;
-		int n_tree, reset;
-	
-		trainer(int n_tree):n_tree(n_tree){ reset=1; };
-	
-		/**
-		 * Estimate using bootstrap .632
-		 * 
-		 * @param data The full data set to be used.
-		 * @param rep How often to repeat the bootstrap.
-		 */
-		void bootstrap(alglib::real_2d_array data, int rep);
-		
-		/**
-		 * Estimate using cross validation
-		 * 
-		 * @param data The full data set to be used.
-		 * @param folds How many folds to use.
-		 */
-		void cv(alglib::real_2d_array data, int folds);
-		
-		/**
-		 * Estimate using repeated cross validation
-		 * 
-		 * @param data The full data set to be used.
-		 * @param rep How many times to repeat cross validation.
-		 * @param folds How many folds to use.
-		 */
-		void rep_cv(alglib::real_2d_array data, int rep, int folds);
-		
-		/**
-		 * Return error mean.
-		 *
-		 * @return mean error of classification.
-		 */
-		double mean_error();
-		
-		/**
-		 * Return error standard deviation.
-		 *
-		 * @return sd of classification error.
-		 */
-		double sd_error();
-		
-		/**
-		 * Return minimum error.
-		 *
-		 * @return minimum error.
-		 */
-		double min_error();  
-		
-		/**
-		 * Return the best model found.
-		 * 
-		 * @return Best found model.
-		 */
-		alglib::decisionforest best_model();  
-};
- 
 /* Optimization */
 
 /**
@@ -187,7 +75,7 @@ class sann
 {
 	private:
 		// General variables
-		std::vector<int*> seqs;
+		std::vector<std::vector<int> > seqs;
 		int n_link;
 		int max_link;
 		int n_candidates;
@@ -205,18 +93,18 @@ class sann
 		double best_energy;
 		
 		// Boltzmann sample histograms
-		int* link_idx;		//index distributions - this is not used for sampling 
-		int action_idx[3];	//action distributions - actions are [ 0=add, 1=change, 2=delete ]
+		std::vector<int> link_idx;		//index distributions - this is not used for sampling 
+		std::vector<int> action_idx;	//action distributions - actions are [ 0=add, 1=change, 2=delete ]
 		
 		// BLOSUM-based substitution
-		std::vector<double*> subs;
+		std::vector<std::vector<double> > subs;
 		
 		// ELP histogram
 		double E_low; //lower energy value
 		double E_up;  //upper energy value
 		double step;  //step size for bins
 		int n_bins;	  //number of bins
-		int* hist;	  //actual histogram
+		std::vector<int> hist;	  //actual histogram
 		
 		// Helper functions
 		/**
@@ -226,7 +114,7 @@ class sann
 		 * @param n Number of indices.
 		 * @return An index ranging from 
 		 */
-		template <class number_type> int sample_idx(number_type* cweights, int n);
+		template <class number_type> int sample_idx(const std::vector<number_type>& cweights, int n);
 		
 		/**
 		 * Function to get the index of an energy value in ELP histogram
@@ -251,14 +139,7 @@ class sann
 		/**
 		 * Destructor.
 		 */
-		~sann();
-	
-		/**
-		 * Function to initialize and broadcast basic variables and classifiers
-		 * 
-		 * @return 0 - failure, 1 - success
-		 */
-		int init();
+		~sann(){};
 	
 		/**
 		 * Function to calculate the energy of a sequence configuration. This is basically the inverse probability to be
@@ -267,7 +148,7 @@ class sann
 		 * @param link The linker configuration.
 		 * @return The "energy", meaning E = 1-Pr(CPP,efficient)
 		 */
-		double energy(linker_set link);
+		double energy(const linker_set& link);
 		
 		/** 
 		 * Update list of best solutions
@@ -276,7 +157,7 @@ class sann
 		 * @param energy The energy.
 		 * @return 1 if there was an update, 0 if not.
 		 */
-		int update_best(linker_set links, double energy);
+		int update_best(const linker_set& links, double energy);
 		
 		/**
 		 * Gets the best found solutions.
@@ -294,7 +175,7 @@ class sann
 		 * @param idx index of linker.
 		 * @return length of linker.
 		 */
-		int link_size(linker_set links, int idx);
+		int link_size(const linker_set& links, int idx);
 		
 		/**
 		 * Function to sample a new linker configuration from a previous one.
@@ -302,7 +183,7 @@ class sann
 		 * @param link The linker configuration.
 		 * @return A new linker configuration.
 		 */
-		void sample_linker(linker_set new_link, linker_set old_link);
+		void sample_linker(linker_set& new_link, const linker_set& old_link);
 		 
 		 /**
 		  * Mutate an aminoacid for another one.
@@ -319,7 +200,7 @@ class sann
 		  * @param l_idx The linker index to be modified.
 		  * @param pos Position of the removed amino acid
 		  */
-		 void cut(linker_set links, int l_idx, int pos);
+		 void cut(linker_set& links, int l_idx, int pos);
 		 
 		 /**
 		  * A single annealing run which consists of generating several solution candidates in parallel, than sampling a new
@@ -347,7 +228,7 @@ class sann
 		  * @param link The linker set to be used.
 		  * @return The assembled sequence as integer array.
 		  */
-		 int* assemble_seq(linker_set link);
+		 std::vector<int> assemble_seq(const linker_set& link);
 		 
 		/**
 		 * Converts integer sequence to amino acid sequence.
@@ -355,7 +236,7 @@ class sann
 		 * @param int_seq The integer sequence.
 		 * @return The amino acid sequence as string.
 		 */
-		std::string get_seq(int* int_seq);
+		std::string get_seq(const std::vector<int>& int_seq);
 		
 		/**
 		 * Gets some basic diagnostics of the optimization.

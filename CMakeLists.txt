@@ -26,13 +26,13 @@ endif()
 
 set(LIBS ${LIBS} alglib)
 
-add_definitions(-std=c++0x)
+add_definitions(-std=c++11)
 
 file(COPY examples DESTINATION .)
 configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_config.h )
 
 #Build program
-add_executable(modes src/main.cxx src/iztli.cxx src/design.cxx)
+add_executable(modes src/main.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
 target_link_libraries(modes ${LIBS})
 
 enable_testing()

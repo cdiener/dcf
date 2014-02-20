@@ -30,8 +30,7 @@
 General prototypes and definitions.
 
 Note that we encode the amoinoacids internally as integer vectors as this allows the sequence to be used as
-a hash and makes most access operations O(1). For better usage the integer array begins with the number of elements
-in the array and is immediately followed by the actual integer sequence.
+a hash and makes most access operations O(1).
 */
 
 //The amino acid coding
@@ -88,7 +87,7 @@ Calculates the mean hydrophobicity of a peptide over windows of size W.
 @param seq A peptide sequence in integer encoding
 @return The mean hydrophobicity of the sequence
 */
-double Hm(int* seq);
+double Hm(std::vector<int> seq);
 
 /**
 Calculates the charge of a peptide
@@ -96,7 +95,7 @@ Calculates the charge of a peptide
 @param seq A peptide sequence in integer encoding
 @return The average charge of the peptide. 
 */
-double charge(int* seq);
+double charge(std::vector<int> seq);
 
 /**
 Calculates the charge variation of a peptide
@@ -104,7 +103,7 @@ Calculates the charge variation of a peptide
 @param seq A peptide sequence in integer encoding
 @return The average charge of the peptide. 
 */
-double charge_var(int* seq);
+double charge_var(std::vector<int> seq);
 
 
 /**
@@ -115,7 +114,7 @@ identify the zero point by linear interpolation.
 @param seq A peptide sequence in integer encoding
 @return The isoelectric point of the peptide
 */
-double pI(int* seq);
+double pI(std::vector<int> seq);
 
 /**
 Calculates the mean of the maximum hydrophobic moment over windows of size W.
@@ -123,7 +122,7 @@ Calculates the mean of the maximum hydrophobic moment over windows of size W.
 @param seq A peptide sequence in integer encoding
 @return The maximum hydrophobic moment
 */
-double maxHM(int* seq);
+double maxHM(std::vector<int> seq);
 
 /**
 Calculates the number of individual aminoacids
@@ -131,7 +130,7 @@ Calculates the number of individual aminoacids
 @param seq A peptide sequence in integer encoding
 @return Array of amino acid counts
 */
-int* countAA(int* seq);
+std::vector<int> countAA(std::vector<int> seq);
 
 /**
 Approximates the water-octanol partition coefficient logP. 
@@ -140,7 +139,7 @@ Approximates the water-octanol partition coefficient logP.
 @param counts The amino acid counts
 @return logP value
 */
-double logP(int* seq, int* counts);
+double logP(std::vector<int> seq, std::vector<int> counts);
 
 /**
 Helper function to convert a protein sequence to an integer array
@@ -148,7 +147,7 @@ Helper function to convert a protein sequence to an integer array
 @param seq A sequence in string format
 @return The sequence in integer format
 */
-int* string_to_array(std::string seq);
+std::vector<int> string_to_array(std::string seq);
 
 /**
 Helper function to read a list of proteins from a text file.
