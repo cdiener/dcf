@@ -22,8 +22,8 @@ http://www.fsf.org/licensing/licenses
 #include "alglibinternal.h"
 #include "linalg.h"
 #include "statistics.h"
-#include "specialfunctions.h"
 #include "alglibmisc.h"
+#include "specialfunctions.h"
 #include "solvers.h"
 #include "optimization.h"
 
@@ -125,6 +125,19 @@ typedef struct
 } lrreport;
 typedef struct
 {
+    double relclserror;
+    double avgce;
+    double rmserror;
+    double avgerror;
+    double avgrelerror;
+} modelerrors;
+typedef struct
+{
+    double f;
+    ae_vector g;
+} smlpgrad;
+typedef struct
+{
     ae_int_t hlnetworktype;
     ae_int_t hlnormtype;
     ae_vector hllayersizes;
@@ -141,18 +154,17 @@ typedef struct
     ae_vector y;
     ae_matrix xy;
     ae_vector xyrow;
-    ae_matrix chunks;
     ae_vector nwbuf;
     ae_vector integerbuf;
+    modelerrors err;
+    ae_vector rndbuf;
+    ae_shared_pool buf;
+    ae_shared_pool gradbuf;
+    ae_matrix dummydxy;
+    sparsematrix dummysxy;
+    ae_vector dummyidx;
+    ae_shared_pool dummypool;
 } multilayerperceptron;
-typedef struct
-{
-    double relclserror;
-    double avgce;
-    double rmserror;
-    double avgerror;
-    double avgrelerror;
-} modelerrors;
 typedef struct
 {
     ae_vector w;
@@ -257,6 +269,31 @@ typedef struct
 } mlpcvreport;
 typedef struct
 {
+    ae_vector bestparameters;
+    double bestrmserror;
+    ae_bool randomizenetwork;
+    multilayerperceptron network;
+    minlbfgsstate optimizer;
+    minlbfgsreport optimizerrep;
+    ae_vector wbuf0;
+    ae_vector wbuf1;
+    ae_vector allminibatches;
+    ae_vector currentminibatch;
+    rcommstate rstate;
+    ae_int_t algoused;
+    ae_int_t minibatchsize;
+    hqrndstate generator;
+} smlptrnsession;
+typedef struct
+{
+    ae_vector trnsubset;
+    ae_vector valsubset;
+    ae_shared_pool mlpsessions;
+    mlpreport mlprep;
+    multilayerperceptron network;
+} mlpetrnsession;
+typedef struct
+{
     ae_int_t nin;
     ae_int_t nout;
     ae_bool rcpar;
@@ -268,29 +305,25 @@ typedef struct
     ae_int_t npoints;
     ae_matrix densexy;
     sparsematrix sparsexy;
-    multilayerperceptron tnetwork;
-    minlbfgsstate tstate;
-    ae_vector wbest;
-    ae_vector wfinal;
+    smlptrnsession session;
     ae_int_t ngradbatch;
     ae_vector subset;
     ae_int_t subsetsize;
     ae_vector valsubset;
     ae_int_t valsubsetsize;
+    ae_int_t algokind;
+    ae_int_t minibatchsize;
 } mlptrainer;
 typedef struct
 {
     multilayerperceptron network;
-    multilayerperceptron tnetwork;
-    minlbfgsstate state;
     mlpreport rep;
     ae_vector subset;
     ae_int_t subsetsize;
     ae_vector xyrow;
     ae_vector y;
     ae_int_t ngrad;
-    ae_vector bufwbest;
-    ae_vector bufwfinal;
+    ae_shared_pool trnpool;
 } mlpparallelizationcv;
 
 }
@@ -654,32 +687,6 @@ public:
 
 
 /*************************************************************************
-
-*************************************************************************/
-class _multilayerperceptron_owner
-{
-public:
-    _multilayerperceptron_owner();
-    _multilayerperceptron_owner(const _multilayerperceptron_owner &rhs);
-    _multilayerperceptron_owner& operator=(const _multilayerperceptron_owner &rhs);
-    virtual ~_multilayerperceptron_owner();
-    alglib_impl::multilayerperceptron* c_ptr();
-    alglib_impl::multilayerperceptron* c_ptr() const;
-protected:
-    alglib_impl::multilayerperceptron *p_struct;
-};
-class multilayerperceptron : public _multilayerperceptron_owner
-{
-public:
-    multilayerperceptron();
-    multilayerperceptron(const multilayerperceptron &rhs);
-    multilayerperceptron& operator=(const multilayerperceptron &rhs);
-    virtual ~multilayerperceptron();
-
-};
-
-
-/*************************************************************************
 Model's errors:
     * RelCLSError   -   fraction of misclassified cases.
     * AvgCE         -   acerage cross-entropy
@@ -716,6 +723,32 @@ public:
     double &rmserror;
     double &avgerror;
     double &avgrelerror;
+
+};
+
+
+/*************************************************************************
+
+*************************************************************************/
+class _multilayerperceptron_owner
+{
+public:
+    _multilayerperceptron_owner();
+    _multilayerperceptron_owner(const _multilayerperceptron_owner &rhs);
+    _multilayerperceptron_owner& operator=(const _multilayerperceptron_owner &rhs);
+    virtual ~_multilayerperceptron_owner();
+    alglib_impl::multilayerperceptron* c_ptr();
+    alglib_impl::multilayerperceptron* c_ptr() const;
+protected:
+    alglib_impl::multilayerperceptron *p_struct;
+};
+class multilayerperceptron : public _multilayerperceptron_owner
+{
+public:
+    multilayerperceptron();
+    multilayerperceptron(const multilayerperceptron &rhs);
+    multilayerperceptron& operator=(const multilayerperceptron &rhs);
+    virtual ~multilayerperceptron();
 
 };
 
@@ -1172,6 +1205,27 @@ void clusterizersetkmeanslimits(const clusterizerstate &s, const ae_int_t restar
 /*************************************************************************
 This function performs agglomerative hierarchical clustering
 
+FOR USERS OF SMP EDITION:
+
+  ! This function can utilize multicore capabilities of  your system.  In
+  ! order to do this you have to call version with "smp_" prefix,   which
+  ! indicates that multicore code will be used.
+  !
+  ! This note is given for users of SMP edition; if you use GPL  edition,
+  ! or commercial edition of ALGLIB without SMP support, you  still  will
+  ! be able to call smp-version of this function,  but  all  computations
+  ! will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+  !
+  ! You should remember that starting/stopping worker thread always  have
+  ! non-zero  cost.  Multicore  version  is  pretty  efficient  on  large
+  ! problems  which  need  more  than  1.000.000 operations to be solved,
+  ! gives  moderate  speed-up in mid-range (from 100.000 to 1.000.000 CPU
+  ! cycles), but gives no speed-up for small problems (less than  100.000
+  ! operations).
+
 INPUT PARAMETERS:
     S       -   clusterizer state, initialized by ClusterizerCreate()
 
@@ -1192,6 +1246,7 @@ NOTE 1: hierarchical clustering algorithms require large amounts of memory.
      Copyright 10.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void clusterizerrunahc(const clusterizerstate &s, ahcreport &rep);
+void smp_clusterizerrunahc(const clusterizerstate &s, ahcreport &rep);
 
 
 /*************************************************************************
@@ -1229,6 +1284,27 @@ void clusterizerrunkmeans(const clusterizerstate &s, const ae_int_t k, kmeansrep
 
 /*************************************************************************
 This function returns distance matrix for dataset
+
+FOR USERS OF SMP EDITION:
+
+  ! This function can utilize multicore capabilities of  your system.  In
+  ! order to do this you have to call version with "smp_" prefix,   which
+  ! indicates that multicore code will be used.
+  !
+  ! This note is given for users of SMP edition; if you use GPL  edition,
+  ! or commercial edition of ALGLIB without SMP support, you  still  will
+  ! be able to call smp-version of this function,  but  all  computations
+  ! will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+  !
+  ! You should remember that starting/stopping worker thread always  have
+  ! non-zero  cost.  Multicore  version  is  pretty  efficient  on  large
+  ! problems  which  need  more  than  1.000.000 operations to be solved,
+  ! gives  moderate  speed-up in mid-range (from 100.000 to 1.000.000 CPU
+  ! cycles), but gives no speed-up for small problems (less than  100.000
+  ! operations).
 
 INPUT PARAMETERS:
     XY      -   array[NPoints,NFeatures], dataset
@@ -1269,6 +1345,7 @@ NOTES: different distance functions have different performance penalty:
      Copyright 10.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void clusterizergetdistances(const real_2d_array &xy, const ae_int_t npoints, const ae_int_t nfeatures, const ae_int_t disttype, real_2d_array &d);
+void smp_clusterizergetdistances(const real_2d_array &xy, const ae_int_t npoints, const ae_int_t nfeatures, const ae_int_t disttype, real_2d_array &d);
 
 
 /*************************************************************************
@@ -2539,11 +2616,39 @@ void mlpprocessi(const multilayerperceptron &network, const real_1d_array &x, re
 /*************************************************************************
 Error of the neural network on dataset.
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore systems.
+  ! Second improvement gives constant speedup (2-3x, depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network     -   neural network;
     XY          -   training  set,  see  below  for  information  on   the
                     training set format;
-    SSize       -   points count.
+    NPoints     -   points count.
 
 RESULT:
     sum-of-squares error, SUM(sqr(y[i]-desired_y[i])/2)
@@ -2569,11 +2674,40 @@ dataset format is used:
   -- ALGLIB --
      Copyright 04.11.2007 by Bochkanov Sergey
 *************************************************************************/
-double mlperror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t ssize);
+double mlperror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlperror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Error of the neural network on dataset given by sparse matrix.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore systems.
+  ! Second improvement gives constant speedup (2-3x, depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network
@@ -2610,10 +2744,14 @@ dataset format is used:
      Copyright 23.07.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlperrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlperrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Natural error function for neural network, internal subroutine.
+
+NOTE: this function is single-threaded. Unlike other  error  function,  it
+receives no speed-up from being executed in SMP mode.
 
   -- ALGLIB --
      Copyright 04.11.2007 by Bochkanov Sergey
@@ -2622,16 +2760,100 @@ double mlperrorn(const multilayerperceptron &network, const real_2d_array &xy, c
 
 
 /*************************************************************************
-Classification error
+Classification error of the neural network on dataset.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
+INPUT PARAMETERS:
+    Network     -   neural network;
+    XY          -   training  set,  see  below  for  information  on   the
+                    training set format;
+    NPoints     -   points count.
+
+RESULT:
+    classification error (number of misclassified cases)
+
+DATASET FORMAT:
+
+This  function  uses  two  different  dataset formats - one for regression
+networks, another one for classification networks.
+
+For regression networks with NIn inputs and NOut outputs following dataset
+format is used:
+* dataset is given by NPoints*(NIn+NOut) matrix
+* each row corresponds to one example
+* first NIn columns are inputs, next NOut columns are outputs
+
+For classification networks with NIn inputs and NClasses clases  following
+dataset format is used:
+* dataset is given by NPoints*(NIn+1) matrix
+* each row corresponds to one example
+* first NIn columns are inputs, last column stores class number (from 0 to
+  NClasses-1).
 
   -- ALGLIB --
      Copyright 04.11.2007 by Bochkanov Sergey
 *************************************************************************/
-ae_int_t mlpclserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t ssize);
+ae_int_t mlpclserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+ae_int_t smp_mlpclserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Relative classification error on the test set.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2665,19 +2887,45 @@ dataset format is used:
      Copyright 25.12.2008 by Bochkanov Sergey
 *************************************************************************/
 double mlprelclserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlprelclserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Relative classification error on the test set given by sparse matrix.
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network     -   neural network;
     XY          -   training  set,  see  below  for  information  on   the
-                    training set format. This function checks  correctness
-                    of  the  dataset  (no  NANs/INFs,  class  numbers  are
-                    correct) and throws exception when  incorrect  dataset
-                    is passed.  Sparse  matrix  must  use  CRS  format for
-                    storage.
+                    training set format. Sparse matrix must use CRS format
+                    for storage.
     NPoints     -   points count, >=0.
 
 RESULT:
@@ -2706,10 +2954,39 @@ dataset format is used:
      Copyright 09.08.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlprelclserrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlprelclserrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
-Average  cross-entropy  (in bits  per element)  on the  test set.
+Average cross-entropy  (in bits  per element) on the test set.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2743,11 +3020,40 @@ dataset format is used:
      Copyright 08.01.2009 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgce(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlpavgce(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Average  cross-entropy  (in bits  per element)  on the  test set  given by
 sparse matrix.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2785,10 +3091,39 @@ dataset format is used:
      Copyright 9.08.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgcesparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlpavgcesparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 RMS error on the test set given.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2823,10 +3158,39 @@ dataset format is used:
      Copyright 04.11.2007 by Bochkanov Sergey
 *************************************************************************/
 double mlprmserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlprmserror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 RMS error on the test set given by sparse matrix.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2865,10 +3229,39 @@ dataset format is used:
      Copyright 09.08.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlprmserrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlprmserrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
-Average error on the test set.
+Average absolute error on the test set.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2902,10 +3295,39 @@ dataset format is used:
      Copyright 11.03.2008 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgerror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlpavgerror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
-Average error on the test set given by sparse matrix.
+Average absolute error on the test set given by sparse matrix.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2943,10 +3365,39 @@ dataset format is used:
      Copyright 09.08.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgerrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlpavgerrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Average relative error on the test set.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -2981,10 +3432,39 @@ dataset format is used:
      Copyright 11.03.2008 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgrelerror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
+double smp_mlpavgrelerror(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
 Average relative error on the test set given by sparse matrix.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network     -   neural network;
@@ -3023,6 +3503,7 @@ dataset format is used:
      Copyright 09.08.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlpavgrelerrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
+double smp_mlpavgrelerrorsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t npoints);
 
 
 /*************************************************************************
@@ -3073,11 +3554,42 @@ void mlpgradn(const multilayerperceptron &network, const real_1d_array &x, const
 /*************************************************************************
 Batch gradient calculation for a set of inputs/outputs
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
-    XY      -   set of inputs/outputs; one sample = one row;
-                first NIn columns contain inputs,
-                next NOut columns - desired outputs.
+    XY      -   original dataset in dense format; one sample = one row:
+                * first NIn columns contain inputs,
+                * for regression problem, next NOut columns store
+                  desired outputs.
+                * for classification problem, next column (just one!)
+                  stores class number.
     SSize   -   number of elements in XY
     Grad    -   possibly preallocated array. If size of array is smaller
                 than WCount, it will be reallocated. It is recommended to
@@ -3092,17 +3604,50 @@ OUTPUT PARAMETERS:
      Copyright 04.11.2007 by Bochkanov Sergey
 *************************************************************************/
 void mlpgradbatch(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t ssize, double &e, real_1d_array &grad);
+void smp_mlpgradbatch(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t ssize, double &e, real_1d_array &grad);
 
 
 /*************************************************************************
 Batch gradient calculation for a set  of inputs/outputs  given  by  sparse
 matrices
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
-    XY      -   set of inputs/outputs; one sample = one row;
-                first NIn columns contain inputs,
-                next NOut columns - desired outputs.
+    XY      -   original dataset in sparse format; one sample = one row:
+                * MATRIX MUST BE STORED IN CRS FORMAT
+                * first NIn columns contain inputs.
+                * for regression problem, next NOut columns store
+                  desired outputs.
+                * for classification problem, next column (just one!)
+                  stores class number.
     SSize   -   number of elements in XY
     Grad    -   possibly preallocated array. If size of array is smaller
                 than WCount, it will be reallocated. It is recommended to
@@ -3117,16 +3662,48 @@ OUTPUT PARAMETERS:
      Copyright 26.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpgradbatchsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t ssize, double &e, real_1d_array &grad);
+void smp_mlpgradbatchsparse(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t ssize, double &e, real_1d_array &grad);
 
 
 /*************************************************************************
 Batch gradient calculation for a subset of dataset
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
-    XY      -   original dataset; one sample = one row;
-                first NIn columns contain inputs,
-                next NOut columns - desired outputs.
+    XY      -   original dataset in dense format; one sample = one row:
+                * first NIn columns contain inputs,
+                * for regression problem, next NOut columns store
+                  desired outputs.
+                * for classification problem, next column (just one!)
+                  stores class number.
     SetSize -   real size of XY, SetSize>=0;
     Idx     -   subset of SubsetSize elements, array[SubsetSize]:
                 * Idx[I] stores row index in the original dataset which is
@@ -3137,7 +3714,10 @@ INPUT PARAMETERS:
                   larger than rows(XY)) is given
                 * Idx[]  may  store  indexes  in  any  order and even with
                   repetitions.
-    SubsetSize- number of elements in Idx[] array.
+    SubsetSize- number of elements in Idx[] array:
+                * positive value means that subset given by Idx[] is processed
+                * zero value results in zero gradient
+                * negative value means that full dataset is processed
     Grad      - possibly  preallocated array. If size of array is  smaller
                 than WCount, it will be reallocated. It is  recommended to
                 reuse  previously  allocated  array  to  reduce allocation
@@ -3148,23 +3728,54 @@ OUTPUT PARAMETERS:
     Grad      - gradient  of  E  with  respect   to  weights  of  network,
                 array[WCount]
 
-NOTE: when SubsetSize<0 is used full dataset by call MLPGradBatch function.
-
   -- ALGLIB --
      Copyright 26.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpgradbatchsubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &idx, const ae_int_t subsetsize, double &e, real_1d_array &grad);
+void smp_mlpgradbatchsubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &idx, const ae_int_t subsetsize, double &e, real_1d_array &grad);
 
 
 /*************************************************************************
 Batch gradient calculation for a set of inputs/outputs  for  a  subset  of
-dataset given by boolean mask.
+dataset given by set of indexes.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
-    XY      -   set of inputs/outputs; one sample = one row;
-                first NIn columns contain inputs,
-                next NOut columns - desired outputs.
+    XY      -   original dataset in sparse format; one sample = one row:
+                * MATRIX MUST BE STORED IN CRS FORMAT
+                * first NIn columns contain inputs,
+                * for regression problem, next NOut columns store
+                  desired outputs.
+                * for classification problem, next column (just one!)
+                  stores class number.
     SetSize -   real size of XY, SetSize>=0;
     Idx     -   subset of SubsetSize elements, array[SubsetSize]:
                 * Idx[I] stores row index in the original dataset which is
@@ -3175,10 +3786,13 @@ INPUT PARAMETERS:
                   larger than rows(XY)) is given
                 * Idx[]  may  store  indexes  in  any  order and even with
                   repetitions.
-    SubsetSize- number of elements in Idx[] array.
-    Grad    -   possibly  preallocated array. If size of array is smaller
-                than WCount, it will be reallocated. It is recommended to
-                reuse  previously  allocated  array  to reduce allocation
+    SubsetSize- number of elements in Idx[] array:
+                * positive value means that subset given by Idx[] is processed
+                * zero value results in zero gradient
+                * negative value means that full dataset is processed
+    Grad      - possibly  preallocated array. If size of array is  smaller
+                than WCount, it will be reallocated. It is  recommended to
+                reuse  previously  allocated  array  to  reduce allocation
                 overhead.
 
 OUTPUT PARAMETERS:
@@ -3193,6 +3807,7 @@ NOTE: when  SubsetSize<0 is used full dataset by call MLPGradBatchSparse
      Copyright 26.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpgradbatchsparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &idx, const ae_int_t subsetsize, double &e, real_1d_array &grad);
+void smp_mlpgradbatchsparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &idx, const ae_int_t subsetsize, double &e, real_1d_array &grad);
 
 
 /*************************************************************************
@@ -3254,6 +3869,34 @@ void mlphessianbatch(const multilayerperceptron &network, const real_2d_array &x
 /*************************************************************************
 Calculation of all types of errors.
 
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
+
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
     XY      -   original dataset; one sample = one row;
@@ -3272,10 +3915,39 @@ NOTE: when SubsetSize<0 is used full dataset by call MLPGradBatch function.
      Copyright 04.09.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpallerrorssubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize, modelerrors &rep);
+void smp_mlpallerrorssubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize, modelerrors &rep);
 
 
 /*************************************************************************
-Calculation of all types of errors.
+Calculation of all types of errors on sparse dataset.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network -   network initialized with one of the network creation funcs
@@ -3296,10 +3968,39 @@ NOTE: when SubsetSize<0 is used full dataset by call MLPGradBatch function.
      Copyright 04.09.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpallerrorssparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize, modelerrors &rep);
+void smp_mlpallerrorssparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize, modelerrors &rep);
 
 
 /*************************************************************************
 Error of the neural network on dataset.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network   -   neural network;
@@ -3334,10 +4035,39 @@ dataset format is used:
      Copyright 04.09.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlperrorsubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize);
+double smp_mlperrorsubset(const multilayerperceptron &network, const real_2d_array &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize);
 
 
 /*************************************************************************
-Error of the neural network on dataset.
+Error of the neural network on sparse dataset.
+
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support
+  !
+  ! First improvement gives close-to-linear speedup on multicore  systems.
+  ! Second improvement gives constant speedup (2-3x depending on your CPU)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 
 INPUT PARAMETERS:
     Network   -   neural network;
@@ -3377,6 +4107,7 @@ dataset format is used:
      Copyright 04.09.2012 by Bochkanov Sergey
 *************************************************************************/
 double mlperrorsparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize);
+double smp_mlperrorsparsesubset(const multilayerperceptron &network, const sparsematrix &xy, const ae_int_t setsize, const integer_1d_array &subset, const ae_int_t subsetsize);
 
 /*************************************************************************
 This subroutine trains logit model.
@@ -4692,6 +5423,36 @@ void mlpkfoldcvlm(const multilayerperceptron &network, const real_2d_array &xy, 
 This function estimates generalization error using cross-validation on the
 current dataset with current training settings.
 
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support (C++ computational core)
+  !
+  ! Second improvement gives constant  speedup (2-3X).  First  improvement
+  ! gives  close-to-linear  speedup  on   multicore   systems.   Following
+  ! operations can be executed in parallel:
+  ! * FoldsCount cross-validation rounds (always)
+  ! * NRestarts training sessions performed within each of
+  !   cross-validation rounds (if NRestarts>1)
+  ! * gradient calculation over large dataset (if dataset is large enough)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
 
 INPUT PARAMETERS:
     S           -   trainer object
@@ -4882,17 +5643,43 @@ INPUT PARAMETERS:
                     size means stopping after MaxIts iterations.
                     WStep>=0.
     MaxIts      -   stopping   criterion.  Algorithm  stops  after  MaxIts
-                    iterations (NOT gradient  calculations).  Zero  MaxIts
+                    epochs (full passes over entire dataset).  Zero MaxIts
                     means stopping when step is sufficiently small.
                     MaxIts>=0.
 
 NOTE: by default, WStep=0.005 and MaxIts=0 are used. These values are also
       used when MLPSetCond() is called with WStep=0 and MaxIts=0.
 
+NOTE: these stopping criteria are used for all kinds of neural training  -
+      from "conventional" networks to early stopping ensembles. When  used
+      for "conventional" networks, they are  used  as  the  only  stopping
+      criteria. When combined with early stopping, they used as ADDITIONAL
+      stopping criteria which can terminate early stopping algorithm.
+
   -- ALGLIB --
      Copyright 23.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlpsetcond(const mlptrainer &s, const double wstep, const ae_int_t maxits);
+
+
+/*************************************************************************
+This function sets training algorithm: batch training using L-BFGS will be
+used.
+
+This algorithm:
+* the most robust for small-scale problems, but may be too slow for  large
+  scale ones.
+* perfoms full pass through the dataset before performing step
+* uses conditions specified by MLPSetCond() for stopping
+* is default one used by trainer object
+
+INPUT PARAMETERS:
+    S           -   trainer object
+
+  -- ALGLIB --
+     Copyright 23.07.2012 by Bochkanov Sergey
+*************************************************************************/
+void mlpsetalgobatch(const mlptrainer &s);
 
 
 /*************************************************************************
@@ -4902,6 +5689,36 @@ and current training settings. Training  from  NRestarts  random  starting
 positions is performed, best network is chosen.
 
 Training is performed using current training algorithm.
+
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support (C++ computational core)
+  !
+  ! Second improvement gives constant  speedup (2-3X).  First  improvement
+  ! gives  close-to-linear  speedup  on   multicore   systems.   Following
+  ! operations can be executed in parallel:
+  ! * NRestarts training sessions performed within each of
+  !   cross-validation rounds (if NRestarts>1)
+  ! * gradient calculation over large dataset (if dataset is large enough)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
 
 INPUT PARAMETERS:
     S           -   trainer object
@@ -4928,6 +5745,7 @@ NOTE: this method uses sum-of-squares error function for training.
      Copyright 23.07.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlptrainnetwork(const mlptrainer &s, const multilayerperceptron &network, const ae_int_t nrestarts, mlpreport &rep);
+void smp_mlptrainnetwork(const mlptrainer &s, const multilayerperceptron &network, const ae_int_t nrestarts, mlpreport &rep);
 
 
 /*************************************************************************
@@ -4990,6 +5808,34 @@ IMPORTANT: this is an "expert" version of the MLPTrain() function.  We  do
            not recommend you to use it unless you are pretty sure that you
            need ability to monitor training progress.
 
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support (C++ computational core)
+  !
+  ! Second improvement gives constant  speedup (2-3X).  First  improvement
+  ! gives  close-to-linear  speedup  on   multicore   systems.   Following
+  ! operations can be executed in parallel:
+  ! * gradient calculation over large dataset (if dataset is large enough)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 This function performs step-by-step training of the neural  network.  Here
 "step-by-step" means that training starts  with  MLPStartTraining()  call,
 and then user subsequently calls MLPContinueTraining() to perform one more
@@ -5049,6 +5895,7 @@ NOTE: It  is  expected that Network is the same one which  was  passed  to
      Copyright 23.07.2012 by Bochkanov Sergey
 *************************************************************************/
 bool mlpcontinuetraining(const mlptrainer &s, const multilayerperceptron &network);
+bool smp_mlpcontinuetraining(const mlptrainer &s, const multilayerperceptron &network);
 
 
 /*************************************************************************
@@ -5143,6 +5990,38 @@ current dataset and early stopping training algorithm. Each early stopping
 round performs NRestarts  random  restarts  (thus,  EnsembleSize*NRestarts
 training rounds is performed in total).
 
+FOR USERS OF COMMERCIAL EDITION:
+
+  ! Commercial version of ALGLIB includes two  important  improvements  of
+  ! this function:
+  ! * multicore support (C++ and C# computational cores)
+  ! * SSE support (C++ computational core)
+  !
+  ! Second improvement gives constant  speedup (2-3X).  First  improvement
+  ! gives  close-to-linear  speedup  on   multicore   systems.   Following
+  ! operations can be executed in parallel:
+  ! * EnsembleSize  training  sessions  performed  for  each  of  ensemble
+  !   members (always parallelized)
+  ! * NRestarts  training  sessions  performed  within  each  of  training
+  !   sessions (if NRestarts>1)
+  ! * gradient calculation over large dataset (if dataset is large enough)
+  !
+  ! In order to use multicore features you have to:
+  ! * use commercial version of ALGLIB
+  ! * call  this  function  with  "smp_"  prefix,  which  indicates  that
+  !   multicore code will be used (for multicore support)
+  !
+  ! In order to use SSE features you have to:
+  ! * use commercial version of ALGLIB on Intel processors
+  ! * use C++ computational core
+  !
+  ! This note is given for users of commercial edition; if  you  use  GPL
+  ! edition, you still will be able to call smp-version of this function,
+  ! but all computations will be done serially.
+  !
+  ! We recommend you to carefully read ALGLIB Reference  Manual,  section
+  ! called 'SMP support', before using parallel version of this function.
+
 INPUT PARAMETERS:
     S           -   trainer object;
     Ensemble    -   neural network ensemble. It must have same  number  of
@@ -5157,6 +6036,10 @@ OUTPUT PARAMETERS:
     Ensemble    -   trained ensemble;
     Rep         -   it contains all type of errors.
 
+NOTE: this training method uses BOTH early stopping and weight decay!  So,
+      you should select weight decay before starting training just as  you
+      select it before training "conventional" networks.
+
 NOTE: when no dataset was specified with MLPSetDataset/SetSparseDataset(),
       or  single-point  dataset  was  passed,  ensemble  is filled by zero
       values.
@@ -5167,6 +6050,7 @@ NOTE: this method uses sum-of-squares error function for training.
      Copyright 22.08.2012 by Bochkanov Sergey
 *************************************************************************/
 void mlptrainensemblees(const mlptrainer &s, const mlpensemble &ensemble, const ae_int_t nrestarts, mlpreport &rep);
+void smp_mlptrainensemblees(const mlptrainer &s, const mlpensemble &ensemble, const ae_int_t nrestarts, mlpreport &rep);
 
 /*************************************************************************
 Principal components analysis
@@ -5183,7 +6067,7 @@ INPUT PARAMETERS:
     NPoints     -   dataset size, NPoints>=0
     NVars       -   number of independent variables, NVars>=1
 
-¬€’ŒƒÕ€≈ œ¿–¿Ã≈“–€:
+OUTPUT PARAMETERS:
     Info        -   return code:
                     * -4, if SVD subroutine haven't converged
                     * -1, if wrong parameters has been passed (NPoints<0,
@@ -5319,6 +6203,8 @@ void clusterizersetkmeanslimits(clusterizerstate* s,
 void clusterizerrunahc(clusterizerstate* s,
      ahcreport* rep,
      ae_state *_state);
+void _pexec_clusterizerrunahc(clusterizerstate* s,
+    ahcreport* rep, ae_state *_state);
 void clusterizerrunkmeans(clusterizerstate* s,
      ae_int_t k,
      kmeansreport* rep,
@@ -5329,6 +6215,11 @@ void clusterizergetdistances(/* Real    */ ae_matrix* xy,
      ae_int_t disttype,
      /* Real    */ ae_matrix* d,
      ae_state *_state);
+void _pexec_clusterizergetdistances(/* Real    */ ae_matrix* xy,
+    ae_int_t npoints,
+    ae_int_t nfeatures,
+    ae_int_t disttype,
+    /* Real    */ ae_matrix* d, ae_state *_state);
 void clusterizergetkclusters(ahcreport* rep,
      ae_int_t k,
      /* Integer */ ae_vector* cidx,
@@ -5567,6 +6458,8 @@ void fisherldan(/* Real    */ ae_matrix* xy,
      ae_int_t* info,
      /* Real    */ ae_matrix* w,
      ae_state *_state);
+ae_int_t mlpgradsplitcost(ae_state *_state);
+ae_int_t mlpgradsplitsize(ae_state *_state);
 void mlpcreate0(ae_int_t nin,
      ae_int_t nout,
      multilayerperceptron* network,
@@ -5642,6 +6535,22 @@ void mlpcreatec2(ae_int_t nin,
 void mlpcopy(multilayerperceptron* network1,
      multilayerperceptron* network2,
      ae_state *_state);
+void mlpcopyshared(multilayerperceptron* network1,
+     multilayerperceptron* network2,
+     ae_state *_state);
+ae_bool mlpsamearchitecture(multilayerperceptron* network1,
+     multilayerperceptron* network2,
+     ae_state *_state);
+void mlpcopytunableparameters(multilayerperceptron* network1,
+     multilayerperceptron* network2,
+     ae_state *_state);
+void mlpexporttunableparameters(multilayerperceptron* network,
+     /* Real    */ ae_vector* p,
+     ae_int_t* pcount,
+     ae_state *_state);
+void mlpimporttunableparameters(multilayerperceptron* network,
+     /* Real    */ ae_vector* p,
+     ae_state *_state);
 void mlpserializeold(multilayerperceptron* network,
      /* Real    */ ae_vector* ra,
      ae_int_t* rlen,
@@ -5666,7 +6575,6 @@ void mlpinitpreprocessorsubset(multilayerperceptron* network,
      ae_int_t subsetsize,
      ae_state *_state);
 void mlpinitpreprocessorsparsesubset(multilayerperceptron* network,
-
      sparsematrix* xy,
      ae_int_t setsize,
      /* Integer */ ae_vector* idx,
@@ -5677,6 +6585,7 @@ void mlpproperties(multilayerperceptron* network,
      ae_int_t* nout,
      ae_int_t* wcount,
      ae_state *_state);
+ae_int_t mlpntotal(multilayerperceptron* network, ae_state *_state);
 ae_int_t mlpgetinputscount(multilayerperceptron* network,
      ae_state *_state);
 ae_int_t mlpgetoutputscount(multilayerperceptron* network,
@@ -5750,60 +6659,99 @@ void mlpprocessi(multilayerperceptron* network,
      ae_state *_state);
 double mlperror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
-     ae_int_t ssize,
+     ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlperror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlperrorsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlperrorsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlperrorn(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t ssize,
      ae_state *_state);
 ae_int_t mlpclserror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
-     ae_int_t ssize,
+     ae_int_t npoints,
      ae_state *_state);
+ae_int_t _pexec_mlpclserror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlprelclserror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlprelclserror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlprelclserrorsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlprelclserrorsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgce(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgce(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgcesparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgcesparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlprmserror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlprmserror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlprmserrorsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlprmserrorsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgerror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgerror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgerrorsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgerrorsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgrelerror(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgrelerror(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t npoints, ae_state *_state);
 double mlpavgrelerrorsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t npoints,
      ae_state *_state);
+double _pexec_mlpavgrelerrorsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t npoints, ae_state *_state);
 void mlpgrad(multilayerperceptron* network,
      /* Real    */ ae_vector* x,
      /* Real    */ ae_vector* desiredy,
@@ -5822,12 +6770,22 @@ void mlpgradbatch(multilayerperceptron* network,
      double* e,
      /* Real    */ ae_vector* grad,
      ae_state *_state);
+void _pexec_mlpgradbatch(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t ssize,
+    double* e,
+    /* Real    */ ae_vector* grad, ae_state *_state);
 void mlpgradbatchsparse(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t ssize,
      double* e,
      /* Real    */ ae_vector* grad,
      ae_state *_state);
+void _pexec_mlpgradbatchsparse(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t ssize,
+    double* e,
+    /* Real    */ ae_vector* grad, ae_state *_state);
 void mlpgradbatchsubset(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t setsize,
@@ -5836,6 +6794,13 @@ void mlpgradbatchsubset(multilayerperceptron* network,
      double* e,
      /* Real    */ ae_vector* grad,
      ae_state *_state);
+void _pexec_mlpgradbatchsubset(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* idx,
+    ae_int_t subsetsize,
+    double* e,
+    /* Real    */ ae_vector* grad, ae_state *_state);
 void mlpgradbatchsparsesubset(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t setsize,
@@ -5843,6 +6808,25 @@ void mlpgradbatchsparsesubset(multilayerperceptron* network,
      ae_int_t subsetsize,
      double* e,
      /* Real    */ ae_vector* grad,
+     ae_state *_state);
+void _pexec_mlpgradbatchsparsesubset(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* idx,
+    ae_int_t subsetsize,
+    double* e,
+    /* Real    */ ae_vector* grad, ae_state *_state);
+void mlpgradbatchx(multilayerperceptron* network,
+     /* Real    */ ae_matrix* densexy,
+     sparsematrix* sparsexy,
+     ae_int_t datasetsize,
+     ae_int_t datasettype,
+     /* Integer */ ae_vector* idx,
+     ae_int_t subset0,
+     ae_int_t subset1,
+     ae_int_t subsettype,
+     ae_shared_pool* buf,
+     ae_shared_pool* gradbuf,
      ae_state *_state);
 void mlpgradnbatch(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
@@ -5889,6 +6873,12 @@ void mlpallerrorssubset(multilayerperceptron* network,
      ae_int_t subsetsize,
      modelerrors* rep,
      ae_state *_state);
+void _pexec_mlpallerrorssubset(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* subset,
+    ae_int_t subsetsize,
+    modelerrors* rep, ae_state *_state);
 void mlpallerrorssparsesubset(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t setsize,
@@ -5896,26 +6886,58 @@ void mlpallerrorssparsesubset(multilayerperceptron* network,
      ae_int_t subsetsize,
      modelerrors* rep,
      ae_state *_state);
+void _pexec_mlpallerrorssparsesubset(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* subset,
+    ae_int_t subsetsize,
+    modelerrors* rep, ae_state *_state);
 double mlperrorsubset(multilayerperceptron* network,
      /* Real    */ ae_matrix* xy,
      ae_int_t setsize,
      /* Integer */ ae_vector* subset,
      ae_int_t subsetsize,
      ae_state *_state);
+double _pexec_mlperrorsubset(multilayerperceptron* network,
+    /* Real    */ ae_matrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* subset,
+    ae_int_t subsetsize, ae_state *_state);
 double mlperrorsparsesubset(multilayerperceptron* network,
      sparsematrix* xy,
      ae_int_t setsize,
      /* Integer */ ae_vector* subset,
      ae_int_t subsetsize,
      ae_state *_state);
-ae_bool _multilayerperceptron_init(void* _p, ae_state *_state, ae_bool make_automatic);
-ae_bool _multilayerperceptron_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
-void _multilayerperceptron_clear(void* _p);
-void _multilayerperceptron_destroy(void* _p);
+double _pexec_mlperrorsparsesubset(multilayerperceptron* network,
+    sparsematrix* xy,
+    ae_int_t setsize,
+    /* Integer */ ae_vector* subset,
+    ae_int_t subsetsize, ae_state *_state);
+void mlpallerrorsx(multilayerperceptron* network,
+     /* Real    */ ae_matrix* densexy,
+     sparsematrix* sparsexy,
+     ae_int_t datasetsize,
+     ae_int_t datasettype,
+     /* Integer */ ae_vector* idx,
+     ae_int_t subset0,
+     ae_int_t subset1,
+     ae_int_t subsettype,
+     ae_shared_pool* buf,
+     modelerrors* rep,
+     ae_state *_state);
 ae_bool _modelerrors_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _modelerrors_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _modelerrors_clear(void* _p);
 void _modelerrors_destroy(void* _p);
+ae_bool _smlpgrad_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _smlpgrad_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _smlpgrad_clear(void* _p);
+void _smlpgrad_destroy(void* _p);
+ae_bool _multilayerperceptron_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _multilayerperceptron_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _multilayerperceptron_clear(void* _p);
+void _multilayerperceptron_destroy(void* _p);
 void mnltrainh(/* Real    */ ae_matrix* xy,
      ae_int_t npoints,
      ae_int_t nvars,
@@ -6145,14 +7167,17 @@ void mlpeprocessi(mlpensemble* ensemble,
      /* Real    */ ae_vector* x,
      /* Real    */ ae_vector* y,
      ae_state *_state);
-void mlpeallerrors(mlpensemble* ensemble,
-     /* Real    */ ae_matrix* xy,
-     ae_int_t npoints,
-     double* relcls,
-     double* avgce,
-     double* rms,
-     double* avg,
-     double* avgrel,
+void mlpeallerrorsx(mlpensemble* ensemble,
+     /* Real    */ ae_matrix* densexy,
+     sparsematrix* sparsexy,
+     ae_int_t datasetsize,
+     ae_int_t datasettype,
+     /* Integer */ ae_vector* idx,
+     ae_int_t subset0,
+     ae_int_t subset1,
+     ae_int_t subsettype,
+     ae_shared_pool* buf,
+     modelerrors* rep,
      ae_state *_state);
 void mlpeallerrorssparse(mlpensemble* ensemble,
      sparsematrix* xy,
@@ -6276,11 +7301,16 @@ void mlpsetcond(mlptrainer* s,
      double wstep,
      ae_int_t maxits,
      ae_state *_state);
+void mlpsetalgobatch(mlptrainer* s, ae_state *_state);
 void mlptrainnetwork(mlptrainer* s,
      multilayerperceptron* network,
      ae_int_t nrestarts,
      mlpreport* rep,
      ae_state *_state);
+void _pexec_mlptrainnetwork(mlptrainer* s,
+    multilayerperceptron* network,
+    ae_int_t nrestarts,
+    mlpreport* rep, ae_state *_state);
 void mlpstarttraining(mlptrainer* s,
      multilayerperceptron* network,
      ae_bool randomstart,
@@ -6288,6 +7318,8 @@ void mlpstarttraining(mlptrainer* s,
 ae_bool mlpcontinuetraining(mlptrainer* s,
      multilayerperceptron* network,
      ae_state *_state);
+ae_bool _pexec_mlpcontinuetraining(mlptrainer* s,
+    multilayerperceptron* network, ae_state *_state);
 void mlpebagginglm(mlpensemble* ensemble,
      /* Real    */ ae_matrix* xy,
      ae_int_t npoints,
@@ -6321,6 +7353,10 @@ void mlptrainensemblees(mlptrainer* s,
      ae_int_t nrestarts,
      mlpreport* rep,
      ae_state *_state);
+void _pexec_mlptrainensemblees(mlptrainer* s,
+    mlpensemble* ensemble,
+    ae_int_t nrestarts,
+    mlpreport* rep, ae_state *_state);
 ae_bool _mlpreport_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _mlpreport_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _mlpreport_clear(void* _p);
@@ -6329,6 +7365,14 @@ ae_bool _mlpcvreport_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _mlpcvreport_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _mlpcvreport_clear(void* _p);
 void _mlpcvreport_destroy(void* _p);
+ae_bool _smlptrnsession_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _smlptrnsession_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _smlptrnsession_clear(void* _p);
+void _smlptrnsession_destroy(void* _p);
+ae_bool _mlpetrnsession_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _mlpetrnsession_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _mlpetrnsession_clear(void* _p);
+void _mlpetrnsession_destroy(void* _p);
 ae_bool _mlptrainer_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _mlptrainer_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _mlptrainer_clear(void* _p);

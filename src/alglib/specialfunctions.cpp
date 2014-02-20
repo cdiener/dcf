@@ -1583,7 +1583,8 @@ ACCURACY:
 arithmetic   domain     # trials      peak         rms
    IEEE       0,1        30000       2.5e-16     6.8e-17
 
-Алгоритм взят из библиотеки Cephes
+Cephes Math Library, Release 2.8:  June, 2000
+Copyright 1984, 1987, 2000 by Stephen L. Moshier
 *************************************************************************/
 double ellipticintegralkhighprecision(const double m1)
 {
@@ -7176,7 +7177,8 @@ ACCURACY:
 arithmetic   domain     # trials      peak         rms
    IEEE       0,1        30000       2.5e-16     6.8e-17
 
-Алгоритм взят из библиотеки Cephes
+Cephes Math Library, Release 2.8:  June, 2000
+Copyright 1984, 1987, 2000 by Stephen L. Moshier
 *************************************************************************/
 double ellipticintegralkhighprecision(double m1, ae_state *_state)
 {

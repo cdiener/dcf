@@ -1077,10 +1077,10 @@ Dense solver.
 This subroutine finds solution of the linear system A*X=B with non-square,
 possibly degenerate A.  System  is  solved in the least squares sense, and
 general least squares solution  X = X0 + CX*y  which  minimizes |A*X-B| is
-returned. If A is non-degenerate, solution in the  usual sense is returned
+returned. If A is non-degenerate, solution in the usual sense is returned.
 
 Algorithm features:
-* automatic detection of degenerate cases
+* automatic detection (and correct handling!) of degenerate cases
 * iterative refinement
 * O(N^3) complexity
 
@@ -1101,10 +1101,8 @@ OUTPUT PARAMETERS
                 *  1    if task is solved
     Rep     -   solver report, see below for more info
     X       -   array[0..N-1,0..M-1], it contains:
-                * solution of A*X=B if A is non-singular (well-conditioned
-                  or ill-conditioned, but not very close to singular)
-                * zeros,  if  A  is  singular  or  VERY  close to singular
-                  (in this case Info=-3).
+                * solution of A*X=B (even for singular A)
+                * zeros, if SVD subroutine failed
 
 SOLVER REPORT
 
@@ -4329,10 +4327,10 @@ Dense solver.
 This subroutine finds solution of the linear system A*X=B with non-square,
 possibly degenerate A.  System  is  solved in the least squares sense, and
 general least squares solution  X = X0 + CX*y  which  minimizes |A*X-B| is
-returned. If A is non-degenerate, solution in the  usual sense is returned
+returned. If A is non-degenerate, solution in the usual sense is returned.
 
 Algorithm features:
-* automatic detection of degenerate cases
+* automatic detection (and correct handling!) of degenerate cases
 * iterative refinement
 * O(N^3) complexity
 
@@ -4353,10 +4351,8 @@ OUTPUT PARAMETERS
                 *  1    if task is solved
     Rep     -   solver report, see below for more info
     X       -   array[0..N-1,0..M-1], it contains:
-                * solution of A*X=B if A is non-singular (well-conditioned
-                  or ill-conditioned, but not very close to singular)
-                * zeros,  if  A  is  singular  or  VERY  close to singular
-                  (in this case Info=-3).
+                * solution of A*X=B (even for singular A)
+                * zeros, if SVD subroutine failed
 
 SOLVER REPORT
 

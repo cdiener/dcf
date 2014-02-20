@@ -29,6 +29,7 @@ set(LIBS ${LIBS} alglib)
 add_definitions(-std=c++11)
 
 file(COPY examples DESTINATION .)
+file(COPY src/blosum80.qij DESTINATION .)
 configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_config.h )
 
 #Build program

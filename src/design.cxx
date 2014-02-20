@@ -59,7 +59,7 @@ int sann::ELP_idx(double energy)
 	else return floor( (energy-E_low)/step );
 }
 
-sann::sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
+sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
 {	
 	this->dfs = dfs;
 	
@@ -115,6 +115,12 @@ void sann::read_blosum(std::string file)
 	std::string tmp, AA_order;
 	int m_idx, a, b;
 	double dval, sum;
+	
+	if(!in.good())
+	{
+		std::cerr<<"Could not open blosum file!!!"<<std::endl;
+		throw "error";
+	}
 	
 	// Init subs
 	subs.resize(20);
@@ -223,7 +229,7 @@ double sann::energy(const linker_set& link)
 {
 	std::vector<int> seq = assemble_seq(link);
 	std::vector<int> counts;
-	double e = 1.0;
+	double p = 1.0;
 	alglib::real_1d_array vars;
 	alglib::real_1d_array probs;
 	vars.setlength(n_var);
@@ -235,15 +241,15 @@ double sann::energy(const linker_set& link)
 	vars[4] = charge_var(seq);
 	counts = countAA(seq);
 	vars[5] = logP(seq, counts);
-	for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = counts[j-n_var+20];
+	for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = 1.0*counts[j-n_var+20]/seq.size();
 	
 	for(unsigned int i=0; i<dfs.size(); i++)
 	{
 		dfprocess(dfs[i], vars, probs);
-		e *= probs[0];
+		p *= probs[0];
 	}
 	
-	return 1.0-e;
+	return 1.0-p;
 }
 
 int sann::update_best(const linker_set& links, double energy)

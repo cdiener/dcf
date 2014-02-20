@@ -220,6 +220,7 @@ typedef struct
     double epsx;
     ae_int_t maxits;
     ae_bool xrep;
+    ae_bool drep;
     double stpmax;
     double diffstep;
     sactiveset sas;
@@ -232,6 +233,9 @@ typedef struct
     ae_bool needf;
     ae_bool needfg;
     ae_bool xupdated;
+    ae_bool lsstart;
+    ae_bool lbfgssearch;
+    ae_bool boundedstep;
     double teststep;
     rcommstate rstate;
     ae_vector gc;
@@ -248,6 +252,7 @@ typedef struct
     ae_int_t nic;
     double lastgoodstep;
     double lastscaledgoodstep;
+    double maxscaledgrad;
     ae_vector hasbndl;
     ae_vector hasbndu;
     ae_vector bndl;
@@ -370,7 +375,10 @@ typedef struct
 {
     ae_int_t n;
     ae_int_t algokind;
+    ae_int_t akind;
     convexquadraticmodel a;
+    sparsematrix sparsea;
+    ae_bool sparseaupper;
     double anorm;
     ae_vector b;
     ae_vector bndl;
@@ -384,6 +392,10 @@ typedef struct
     ae_matrix cleic;
     ae_int_t nec;
     ae_int_t nic;
+    double bleicepsg;
+    double bleicepsf;
+    double bleicepsx;
+    ae_int_t bleicmaxits;
     sactiveset sas;
     ae_vector gc;
     ae_vector xn;
@@ -404,7 +416,10 @@ typedef struct
     ae_vector tmp1;
     ae_vector tmpb;
     ae_vector rctmpg;
+    ae_vector tmpi;
     normestimatorstate estimator;
+    minbleicstate solver;
+    minbleicreport solverrep;
 } minqpstate;
 typedef struct
 {
@@ -555,10 +570,6 @@ typedef struct
     ae_int_t terminationtype;
     ae_int_t activeconstraints;
 } minasareport;
-typedef struct
-{
-    double debugflops;
-} linfeassolver;
 
 }
 
@@ -843,6 +854,10 @@ Completion codes:
 * -5    inappropriate solver was used:
         * Cholesky solver for semidefinite or indefinite problems
         * Cholesky solver for problems with non-boundary constraints
+* -4    BLEIC-QP algorithm found unconstrained direction
+        of negative curvature (function is unbounded from
+        below  even  under  constraints),  no  meaningful
+        minimum can be found.
 * -3    inconsistent constraints (or, maybe, feasible point is
         too hard to find). If you are sure that constraints are feasible,
         try to restart optimizer with better initial approximation.
@@ -1733,13 +1748,17 @@ INPUT PARAMETERS:
                 the condition |v|<=EpsX is fulfilled, where:
                 * |.| means Euclidian norm
                 * v - scaled step vector, v[i]=dx[i]/s[i]
-                * dx - ste pvector, dx=X(k+1)-X(k)
+                * dx - step vector, dx=X(k+1)-X(k)
                 * s - scaling coefficients set by MinBLEICSetScale()
     MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
                 iterations is unlimited.
 
 Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
 to automatic stopping criterion selection.
+
+NOTE: when SetCond() called with non-zero MaxIts, BLEIC solver may perform
+      slightly more than MaxIts iterations. I.e., MaxIts  sets  non-strict
+      limit on iterations count.
 
   -- ALGLIB --
      Copyright 28.11.2010 by Bochkanov Sergey
@@ -1966,8 +1985,8 @@ OUTPUT PARAMETERS:
                        either nonexistent or too hard to find. Try to
                        restart optimizer with better initial approximation
                 *  1   relative function improvement is no more than EpsF.
-                *  2   relative step is no more than EpsX.
-                *  4   gradient norm is no more than EpsG
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
                 *  5   MaxIts steps was taken
                 More information about fields of this  structure  can  be
                 found in the comments on MinBLEICReport datatype.
@@ -2581,11 +2600,17 @@ void minqpsetlinearterm(const minqpstate &state, const real_1d_array &b);
 
 
 /*************************************************************************
-This function sets quadratic term for QP solver.
+This  function  sets  dense  quadratic  term  for  QP solver. By  default,
+quadratic term is zero.
 
-By default quadratic term is zero.
+SUPPORT BY ALGLIB QP ALGORITHMS:
 
-IMPORTANT: this solver minimizes following  function:
+Dense quadratic term can be handled by any of the QP algorithms  supported
+by ALGLIB QP Solver.
+
+IMPORTANT:
+
+This solver minimizes following  function:
     f(x) = 0.5*x'*A*x + b'*x.
 Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
     f(x) = x^2 + x
@@ -2609,6 +2634,47 @@ INPUT PARAMETERS:
 *************************************************************************/
 void minqpsetquadraticterm(const minqpstate &state, const real_2d_array &a, const bool isupper);
 void minqpsetquadraticterm(const minqpstate &state, const real_2d_array &a);
+
+
+/*************************************************************************
+This  function  sets  sparse  quadratic  term  for  QP solver. By default,
+quadratic term is zero.
+
+SUPPORT BY ALGLIB QP ALGORITHMS:
+
+Sparse quadratic term is supported only by BLEIC-based QP  algorithm  (one
+which is activated by MinQPSetAlgoBLEIC function). Cholesky-based QP  algo
+won't be able to deal  with  sparse  quadratic  term  and  will  terminate
+abnormally.
+
+IF YOU CALLED THIS FUNCTION, YOU MUST SWITCH TO BLEIC-BASED  QP  ALGORITHM
+BEFORE CALLING MINQPOPTIMIZE() FUNCTION.
+
+IMPORTANT:
+
+This solver minimizes following  function:
+    f(x) = 0.5*x'*A*x + b'*x.
+Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
+    f(x) = x^2 + x
+you should rewrite your problem as follows:
+    f(x) = 0.5*(2*x^2) + x
+and your matrix A will be equal to [[2.0]], not to [[1.0]]
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    A       -   matrix, array[N,N]
+    IsUpper -   (optional) storage type:
+                * if True, symmetric matrix  A  is  given  by  its  upper
+                  triangle, and the lower triangle isn’t used
+                * if False, symmetric matrix  A  is  given  by  its lower
+                  triangle, and the upper triangle isn’t used
+                * if not given, both lower and upper  triangles  must  be
+                  filled.
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetquadratictermsparse(const minqpstate &state, const sparsematrix &a, const bool isupper);
 
 
 /*************************************************************************
@@ -2647,15 +2713,62 @@ void minqpsetorigin(const minqpstate &state, const real_1d_array &xorigin);
 
 
 /*************************************************************************
-This function tells solver to use Cholesky-based algorithm.
+This function sets scaling coefficients.
 
-Cholesky-based algorithm can be used when:
-* problem is convex
-* there is no constraints or only boundary constraints are present
+ALGLIB optimizers use scaling matrices to test stopping  conditions  (step
+size and gradient are scaled before comparison with tolerances).  Scale of
+the I-th variable is a translation invariant measure of:
+a) "how large" the variable is
+b) how large the step should be to make significant changes in the function
 
-This algorithm has O(N^3) complexity for unconstrained problem and  is  up
-to several times slower on bound constrained  problems  (these  additional
-iterations are needed to identify active constraints).
+BLEIC-based QP solver uses scale for two purposes:
+* to evaluate stopping conditions
+* for preconditioning of the underlying BLEIC solver
+
+INPUT PARAMETERS:
+    State   -   structure stores algorithm state
+    S       -   array[N], non-zero scaling coefficients
+                S[i] may be negative, sign doesn't matter.
+
+  -- ALGLIB --
+     Copyright 14.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetscale(const minqpstate &state, const real_1d_array &s);
+
+
+/*************************************************************************
+This function tells solver to use Cholesky-based algorithm. This algorithm
+is active by default.
+
+DESCRIPTION:
+
+Cholesky-based algorithm can be used only for problems which:
+* have dense quadratic term, set  by  MinQPSetQuadraticTerm(),  sparse  or
+  structured problems are not supported.
+* are strictly convex, i.e. quadratic term is symmetric positive definite,
+  indefinite or semidefinite problems are not supported by this algorithm.
+
+If anything of what listed above is violated, you may use  BLEIC-based  QP
+algorithm which can be activated by MinQPSetAlgoBLEIC().
+
+BENEFITS AND DRAWBACKS:
+
+This  algorithm  gives  best  precision amongst all QP solvers provided by
+ALGLIB (Newton iterations  have  much  higher  precision  than  any  other
+optimization algorithm). This solver also gracefully handles problems with
+very large amount of constraints.
+
+Performance of the algorithm is good because internally  it  uses  Level 3
+Dense BLAS for its performance-critical parts.
+
+
+From the other side, algorithm has  O(N^3)  complexity  for  unconstrained
+problems and up to orders of  magnitude  slower  on  constrained  problems
+(these additional iterations are needed to identify  active  constraints).
+So, its running time depends on number of constraints active  at solution.
+
+Furthermore, this algorithm can not solve problems with sparse matrices or
+problems with semidefinite/indefinite matrices of any kind (dense/sparse).
 
 INPUT PARAMETERS:
     State   -   structure which stores algorithm state
@@ -2664,6 +2777,82 @@ INPUT PARAMETERS:
      Copyright 11.01.2011 by Bochkanov Sergey
 *************************************************************************/
 void minqpsetalgocholesky(const minqpstate &state);
+
+
+/*************************************************************************
+This function tells solver to use BLEIC-based algorithm and sets  stopping
+criteria for the algorithm.
+
+DESCRIPTION:
+
+BLEIC-based QP algorithm can be used for any kind of QP problems:
+* problems with both dense and sparse quadratic terms
+* problems with positive definite, semidefinite, indefinite terms
+
+BLEIC-based algorithm can solve even indefinite problems - as long as they
+are bounded from below on the feasible set. Of course, global  minimum  is
+found only  for  positive  definite  and  semidefinite  problems.  As  for
+indefinite ones - only local minimum is found.
+
+BENEFITS AND DRAWBACKS:
+
+This algorithm can be used to solve both convex and indefinite QP problems
+and it can utilize sparsity of the quadratic  term  (algorithm  calculates
+matrix-vector products, which can be  performed  efficiently  in  case  of
+sparse matrix).
+
+Algorithm has iteration cost, which (assuming fixed amount of non-boundary
+linear constraints) linearly depends on problem size. Boundary constraints
+does not significantly change iteration cost.
+
+Thus, it outperforms Cholesky-based QP algorithm (CQP) on high-dimensional
+sparse problems with moderate amount of constraints.
+
+
+From the other side, unlike CQP solver, this algorithm does NOT  make  use
+of Level 3 Dense BLAS. Thus, its performance on dense problems is inferior
+to that of CQP solver.
+
+Its precision is also inferior to that of CQP. CQP performs  Newton  steps
+which are know to achieve very good  precision. In many cases Newton  step
+leads us exactly to the solution. BLEIC-QP performs LBFGS steps, which are
+good at detecting neighborhood of the solution, buy need  many  iterations
+to find solution with 6 digits of precision.
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    EpsG    -   >=0
+                The  subroutine  finishes  its  work   if   the  condition
+                |v|<EpsG is satisfied, where:
+                * |.| means Euclidian norm
+                * v - scaled constrained gradient vector, v[i]=g[i]*s[i]
+                * g - gradient
+                * s - scaling coefficients set by MinQPSetScale()
+    EpsF    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:  |F(k+1)-F(k)|<=EpsF*max{|F(k)|,|F(k+1)|,1}
+    EpsX    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:
+                * |.| means Euclidian norm
+                * v - scaled step vector, v[i]=dx[i]/s[i]
+                * dx - step vector, dx=X(k+1)-X(k)
+                * s - scaling coefficients set by MinQPSetScale()
+    MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
+                iterations is unlimited.
+
+Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
+to automatic stopping criterion selection (presently it is  small    step
+length, but it may change in the future versions of ALGLIB).
+
+IT IS VERY IMPORTANT THAT YOU CALL MinQPSetScale() WHEN YOU USE THIS ALGO!
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetalgobleic(const minqpstate &state, const double epsg, const double epsf, const double epsx, const ae_int_t maxits);
 
 
 /*************************************************************************
@@ -2750,11 +2939,35 @@ INPUT PARAMETERS:
     State   -   algorithm state
 
 OUTPUT PARAMETERS:
-    X       -   array[0..N-1], solution
+    X       -   array[0..N-1], solution.
+                This array is allocated and initialized only when
+                Rep.TerminationType parameter is positive (success).
     Rep     -   optimization report. You should check Rep.TerminationType,
                 which contains completion code, and you may check  another
                 fields which contain another information  about  algorithm
                 functioning.
+
+                Failure codes returned by algorithm are:
+                * -5    inappropriate solver was used:
+                        * Cholesky solver for (semi)indefinite problems
+                        * Cholesky solver for problems with sparse matrix
+                * -4    BLEIC-QP algorithm found unconstrained direction
+                        of negative curvature (function is unbounded from
+                        below  even  under  constraints),  no  meaningful
+                        minimum can be found.
+                * -3    inconsistent constraints (or maybe  feasible point
+                        is too  hard  to  find).  If  you  are  sure  that
+                        constraints are feasible, try to restart optimizer
+                        with better initial approximation.
+
+                Completion codes specific for Cholesky algorithm:
+                *  4   successful completion
+
+                Completion codes specific for BLEIC-based algorithm:
+                *  1   relative function improvement is no more than EpsF.
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
+                *  5   MaxIts steps was taken
 
   -- ALGLIB --
      Copyright 11.01.2011 by Bochkanov Sergey
@@ -3756,6 +3969,9 @@ void sascorrection(sactiveset* state,
      /* Real    */ ae_vector* x,
      double* penalty,
      ae_state *_state);
+double sasactivelcpenalty1(sactiveset* state,
+     /* Real    */ ae_vector* x,
+     ae_state *_state);
 double sasscaledconstrainednorm(sactiveset* state,
      /* Real    */ ae_vector* d,
      ae_state *_state);
@@ -3869,6 +4085,9 @@ void minbleicsetprecscale(minbleicstate* state, ae_state *_state);
 void minbleicsetxrep(minbleicstate* state,
      ae_bool needxrep,
      ae_state *_state);
+void minbleicsetdrep(minbleicstate* state,
+     ae_bool needdrep,
+     ae_state *_state);
 void minbleicsetstpmax(minbleicstate* state,
      double stpmax,
      ae_state *_state);
@@ -3884,6 +4103,7 @@ void minbleicresultsbuf(minbleicstate* state,
 void minbleicrestartfrom(minbleicstate* state,
      /* Real    */ ae_vector* x,
      ae_state *_state);
+void minbleicemergencytermination(minbleicstate* state, ae_state *_state);
 void minbleicsetgradientcheck(minbleicstate* state,
      double teststep,
      ae_state *_state);
@@ -3968,13 +4188,26 @@ void minqpsetquadraticterm(minqpstate* state,
      /* Real    */ ae_matrix* a,
      ae_bool isupper,
      ae_state *_state);
+void minqpsetquadratictermsparse(minqpstate* state,
+     sparsematrix* a,
+     ae_bool isupper,
+     ae_state *_state);
 void minqpsetstartingpoint(minqpstate* state,
      /* Real    */ ae_vector* x,
      ae_state *_state);
 void minqpsetorigin(minqpstate* state,
      /* Real    */ ae_vector* xorigin,
      ae_state *_state);
+void minqpsetscale(minqpstate* state,
+     /* Real    */ ae_vector* s,
+     ae_state *_state);
 void minqpsetalgocholesky(minqpstate* state, ae_state *_state);
+void minqpsetalgobleic(minqpstate* state,
+     double epsg,
+     double epsf,
+     double epsx,
+     ae_int_t maxits,
+     ae_state *_state);
 void minqpsetbc(minqpstate* state,
      /* Real    */ ae_vector* bndl,
      /* Real    */ ae_vector* bndu,
@@ -4140,10 +4373,6 @@ ae_bool _minasareport_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _minasareport_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _minasareport_clear(void* _p);
 void _minasareport_destroy(void* _p);
-ae_bool _linfeassolver_init(void* _p, ae_state *_state, ae_bool make_automatic);
-ae_bool _linfeassolver_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
-void _linfeassolver_clear(void* _p);
-void _linfeassolver_destroy(void* _p);
 
 }
 #endif

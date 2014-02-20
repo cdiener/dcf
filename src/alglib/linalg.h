@@ -231,6 +231,19 @@ void rmatrixtranspose(const ae_int_t m, const ae_int_t n, const real_2d_array &a
 
 
 /*************************************************************************
+This code enforces symmetricy of the matrix by copying Upper part to lower
+one (or vice versa).
+
+INPUT PARAMETERS:
+    A   -   matrix
+    N   -   number of rows/columns
+    IsUpper - whether we want to copy upper triangle to lower one (True)
+            or vice versa (False).
+*************************************************************************/
+void rmatrixenforcesymmetricity(const real_2d_array &a, const ae_int_t n, const bool isupper);
+
+
+/*************************************************************************
 Copy
 
 Input parameters:
@@ -364,246 +377,52 @@ void rmatrixmv(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const
 
 
 /*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void smp_cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
 
 
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void smp_cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2);
 
 
 /*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void smp_rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
 
 
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
+void smp_rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2);
 
 
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^H+beta*C  or  C=alpha*A^H*A+beta*C
-where:
-* C is NxN Hermitian matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^H is calculated, KxN matrix otherwise
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^H is calculated
-                * 2 - A^H*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
+void cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
+void smp_cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
 
 
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^T+beta*C  or  C=alpha*A^T*A+beta*C
-where:
-* C is NxN symmetric matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^T is calculated, KxN matrix otherwise
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^T is calculated
-                * 2 - A^T*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
+void rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
+void smp_rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper);
 
 
 /*************************************************************************
-This subroutine calculates C = alpha*op1(A)*op2(B) +beta*C where:
-* C is MxN general matrix
-* op1(A) is MxK matrix
-* op2(B) is KxN matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    M       -   matrix size, M>0
-    N       -   matrix size, N>0
-    K       -   matrix size, K>0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    B       -   matrix
-    IB      -   submatrix offset
-    JB      -   submatrix offset
-    OpTypeB -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, complex_2d_array &c, const ae_int_t ic, const ae_int_t jc);
+void cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc);
+void smp_cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc);
 
 
 /*************************************************************************
@@ -4364,6 +4183,10 @@ void rmatrixtranspose(ae_int_t m,
      ae_int_t ib,
      ae_int_t jb,
      ae_state *_state);
+void rmatrixenforcesymmetricity(/* Real    */ ae_matrix* a,
+     ae_int_t n,
+     ae_bool isupper,
+     ae_state *_state);
 void cmatrixcopy(ae_int_t m,
      ae_int_t n,
      /* Complex */ ae_matrix* a,
@@ -4436,6 +4259,17 @@ void cmatrixrighttrsm(ae_int_t m,
      ae_int_t i2,
      ae_int_t j2,
      ae_state *_state);
+void _pexec_cmatrixrighttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Complex */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Complex */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state);
 void cmatrixlefttrsm(ae_int_t m,
      ae_int_t n,
      /* Complex */ ae_matrix* a,
@@ -4448,6 +4282,17 @@ void cmatrixlefttrsm(ae_int_t m,
      ae_int_t i2,
      ae_int_t j2,
      ae_state *_state);
+void _pexec_cmatrixlefttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Complex */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Complex */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state);
 void rmatrixrighttrsm(ae_int_t m,
      ae_int_t n,
      /* Real    */ ae_matrix* a,
@@ -4460,6 +4305,17 @@ void rmatrixrighttrsm(ae_int_t m,
      ae_int_t i2,
      ae_int_t j2,
      ae_state *_state);
+void _pexec_rmatrixrighttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Real    */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Real    */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state);
 void rmatrixlefttrsm(ae_int_t m,
      ae_int_t n,
      /* Real    */ ae_matrix* a,
@@ -4472,6 +4328,17 @@ void rmatrixlefttrsm(ae_int_t m,
      ae_int_t i2,
      ae_int_t j2,
      ae_state *_state);
+void _pexec_rmatrixlefttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Real    */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Real    */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state);
 void cmatrixsyrk(ae_int_t n,
      ae_int_t k,
      double alpha,
@@ -4485,6 +4352,18 @@ void cmatrixsyrk(ae_int_t n,
      ae_int_t jc,
      ae_bool isupper,
      ae_state *_state);
+void _pexec_cmatrixsyrk(ae_int_t n,
+    ae_int_t k,
+    double alpha,
+    /* Complex */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    double beta,
+    /* Complex */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc,
+    ae_bool isupper, ae_state *_state);
 void rmatrixsyrk(ae_int_t n,
      ae_int_t k,
      double alpha,
@@ -4498,6 +4377,18 @@ void rmatrixsyrk(ae_int_t n,
      ae_int_t jc,
      ae_bool isupper,
      ae_state *_state);
+void _pexec_rmatrixsyrk(ae_int_t n,
+    ae_int_t k,
+    double alpha,
+    /* Real    */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    double beta,
+    /* Real    */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc,
+    ae_bool isupper, ae_state *_state);
 void cmatrixgemm(ae_int_t m,
      ae_int_t n,
      ae_int_t k,
@@ -4515,6 +4406,22 @@ void cmatrixgemm(ae_int_t m,
      ae_int_t ic,
      ae_int_t jc,
      ae_state *_state);
+void _pexec_cmatrixgemm(ae_int_t m,
+    ae_int_t n,
+    ae_int_t k,
+    ae_complex alpha,
+    /* Complex */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    /* Complex */ ae_matrix* b,
+    ae_int_t ib,
+    ae_int_t jb,
+    ae_int_t optypeb,
+    ae_complex beta,
+    /* Complex */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc, ae_state *_state);
 void rmatrixgemm(ae_int_t m,
      ae_int_t n,
      ae_int_t k,

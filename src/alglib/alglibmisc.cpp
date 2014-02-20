@@ -183,8 +183,11 @@ double hqrnduniformr(const hqrndstate &state)
 /*************************************************************************
 This function generates random integer number in [0, N)
 
-1. N must be less than HQRNDMax-1.
-2. State structure must be initialized with HQRNDRandomize() or HQRNDSeed()
+1. State structure must be initialized with HQRNDRandomize() or HQRNDSeed()
+2. N can be any positive number except for very large numbers:
+   * close to 2^31 on 32-bit systems
+   * close to 2^62 on 64-bit systems
+   An exception will be generated if N is too large.
 
   -- ALGLIB --
      Copyright 02.12.2009 by Bochkanov Sergey
@@ -1313,6 +1316,861 @@ void kdtreequeryresultsdistancesi(const kdtree &kdt, real_1d_array &r)
         throw ap_error(_alglib_env_state.error_msg);
     }
 }
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Counts number of True values in the boolean 1D array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugb1count(const boolean_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_int_t result = alglib_impl::xdebugb1count(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<ae_int_t*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by NOT(a[i]).
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1not(const boolean_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb1not(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1appendcopy(boolean_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb1appendcopy(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered elements set to True.
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1outeven(const ae_int_t n, boolean_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb1outeven(n, const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugi1sum(const integer_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_int_t result = alglib_impl::xdebugi1sum(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<ae_int_t*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1neg(const integer_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi1neg(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1appendcopy(integer_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi1appendcopy(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[I] set to I, and odd-numbered
+ones set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1outeven(const ae_int_t n, integer_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi1outeven(n, const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugr1sum(const real_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        double result = alglib_impl::xdebugr1sum(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<double*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1neg(const real_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr1neg(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1appendcopy(real_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr1appendcopy(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[I] set to I*0.25,
+and odd-numbered ones are set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1outeven(const ae_int_t n, real_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr1outeven(n, const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+alglib::complex xdebugc1sum(const complex_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_complex result = alglib_impl::xdebugc1sum(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<alglib::complex*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1neg(const complex_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc1neg(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1appendcopy(complex_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc1appendcopy(const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[K] set to (x,y) = (K*0.25, K*0.125)
+and odd-numbered ones are set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1outeven(const ae_int_t n, complex_1d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc1outeven(n, const_cast<alglib_impl::ae_vector*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Counts number of True values in the boolean 2D array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugb2count(const boolean_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_int_t result = alglib_impl::xdebugb2count(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<ae_int_t*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by NOT(a[i]).
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2not(const boolean_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb2not(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2transpose(boolean_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb2transpose(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J)>0"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2outsin(const ae_int_t m, const ae_int_t n, boolean_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugb2outsin(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugi2sum(const integer_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_int_t result = alglib_impl::xdebugi2sum(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<ae_int_t*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2neg(const integer_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi2neg(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2transpose(integer_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi2transpose(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sign(Sin(3*I+5*J))"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2outsin(const ae_int_t m, const ae_int_t n, integer_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugi2outsin(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugr2sum(const real_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        double result = alglib_impl::xdebugr2sum(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<double*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2neg(const real_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr2neg(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2transpose(real_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr2transpose(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J)"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2outsin(const ae_int_t m, const ae_int_t n, real_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugr2outsin(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+alglib::complex xdebugc2sum(const complex_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::ae_complex result = alglib_impl::xdebugc2sum(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<alglib::complex*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2neg(const complex_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc2neg(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2transpose(complex_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc2transpose(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J),Cos(3*I+5*J)"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2outsincos(const ae_int_t m, const ae_int_t n, complex_2d_array &a)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::xdebugc2outsincos(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of a[i,j]*(1+b[i,j]) such that c[i,j] is True
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugmaskedbiasedproductsum(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const real_2d_array &b, const boolean_2d_array &c)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        double result = alglib_impl::xdebugmaskedbiasedproductsum(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), const_cast<alglib_impl::ae_matrix*>(b.c_ptr()), const_cast<alglib_impl::ae_matrix*>(c.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return *(reinterpret_cast<double*>(&result));
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -1322,7 +2180,7 @@ void kdtreequeryresultsdistancesi(const kdtree &kdt, real_1d_array &r)
 /////////////////////////////////////////////////////////////////////////
 namespace alglib_impl
 {
-static ae_int_t hqrnd_hqrndmax = 2147483563;
+static ae_int_t hqrnd_hqrndmax = 2147483561;
 static ae_int_t hqrnd_hqrndm1 = 2147483563;
 static ae_int_t hqrnd_hqrndm2 = 2147483399;
 static ae_int_t hqrnd_hqrndmagic = 1634357784;
@@ -1371,6 +2229,8 @@ static void nearestneighbor_kdtreealloctemporaries(kdtree* kdt,
 
 
 
+
+
 /*************************************************************************
 HQRNDState  initialization  with  random  values  which come from standard
 RNG.
@@ -1405,9 +2265,27 @@ void hqrndseed(ae_int_t s1,
 
     _hqrndstate_clear(state);
 
+    
+    /*
+     * Protection against negative seeds:
+     *
+     *     SEED := -(SEED+1)
+     *
+     * We can use just "-SEED" because there exists such integer number  N
+     * that N<0, -N=N<0 too. (This number is equal to 0x800...000).   Need
+     * to handle such seed correctly forces us to use  a  bit  complicated
+     * formula.
+     */
+    if( s1<0 )
+    {
+        s1 = -(s1+1);
+    }
+    if( s2<0 )
+    {
+        s2 = -(s2+1);
+    }
     state->s1 = s1%(hqrnd_hqrndm1-1)+1;
     state->s2 = s2%(hqrnd_hqrndm2-1)+1;
-    state->v = (double)1/(double)hqrnd_hqrndmax;
     state->magicv = hqrnd_hqrndmagic;
 }
 
@@ -1426,7 +2304,7 @@ double hqrnduniformr(hqrndstate* state, ae_state *_state)
     double result;
 
 
-    result = state->v*hqrnd_hqrndintegerbase(state, _state);
+    result = (double)(hqrnd_hqrndintegerbase(state, _state)+1)/(double)(hqrnd_hqrndmax+2);
     return result;
 }
 
@@ -1434,32 +2312,117 @@ double hqrnduniformr(hqrndstate* state, ae_state *_state)
 /*************************************************************************
 This function generates random integer number in [0, N)
 
-1. N must be less than HQRNDMax-1.
-2. State structure must be initialized with HQRNDRandomize() or HQRNDSeed()
+1. State structure must be initialized with HQRNDRandomize() or HQRNDSeed()
+2. N can be any positive number except for very large numbers:
+   * close to 2^31 on 32-bit systems
+   * close to 2^62 on 64-bit systems
+   An exception will be generated if N is too large.
 
   -- ALGLIB --
      Copyright 02.12.2009 by Bochkanov Sergey
 *************************************************************************/
 ae_int_t hqrnduniformi(hqrndstate* state, ae_int_t n, ae_state *_state)
 {
+    ae_int_t maxcnt;
     ae_int_t mx;
+    ae_int_t a;
+    ae_int_t b;
     ae_int_t result;
 
 
+    ae_assert(n>0, "HQRNDUniformI: N<=0!", _state);
+    maxcnt = hqrnd_hqrndmax+1;
     
     /*
-     * Correct handling of N's close to RNDBaseMax
-     * (avoiding skewed distributions for RNDBaseMax<>K*N)
+     * Two branches: one for N<=MaxCnt, another for N>MaxCnt.
      */
-    ae_assert(n>0, "HQRNDUniformI: N<=0!", _state);
-    ae_assert(n<hqrnd_hqrndmax-1, "HQRNDUniformI: N>=RNDBaseMax-1!", _state);
-    mx = hqrnd_hqrndmax-1-(hqrnd_hqrndmax-1)%n;
-    do
+    if( n>maxcnt )
     {
-        result = hqrnd_hqrndintegerbase(state, _state)-1;
+        
+        /*
+         * N>=MaxCnt.
+         *
+         * We have two options here:
+         * a) N is exactly divisible by MaxCnt
+         * b) N is not divisible by MaxCnt
+         *
+         * In both cases we reduce problem on interval spanning [0,N)
+         * to several subproblems on intervals spanning [0,MaxCnt).
+         */
+        if( n%maxcnt==0 )
+        {
+            
+            /*
+             * N is exactly divisible by MaxCnt.
+             *
+             * [0,N) range is dividided into N/MaxCnt bins,
+             * each of them having length equal to MaxCnt.
+             *
+             * We generate:
+             * * random bin number B
+             * * random offset within bin A
+             * Both random numbers are generated by recursively
+             * calling HQRNDUniformI().
+             *
+             * Result is equal to A+MaxCnt*B.
+             */
+            ae_assert(n/maxcnt<=maxcnt, "HQRNDUniformI: N is too large", _state);
+            a = hqrnduniformi(state, maxcnt, _state);
+            b = hqrnduniformi(state, n/maxcnt, _state);
+            result = a+maxcnt*b;
+        }
+        else
+        {
+            
+            /*
+             * N is NOT exactly divisible by MaxCnt.
+             *
+             * [0,N) range is dividided into Ceil(N/MaxCnt) bins,
+             * each of them having length equal to MaxCnt.
+             *
+             * We generate:
+             * * random bin number B in [0, Ceil(N/MaxCnt)-1]
+             * * random offset within bin A
+             * * if both of what is below is true
+             *   1) bin number B is that of the last bin
+             *   2) A >= N mod MaxCnt
+             *   then we repeat generation of A/B.
+             *   This stage is essential in order to avoid bias in the result.
+             * * otherwise, we return A*MaxCnt+N
+             */
+            ae_assert(n/maxcnt+1<=maxcnt, "HQRNDUniformI: N is too large", _state);
+            result = -1;
+            do
+            {
+                a = hqrnduniformi(state, maxcnt, _state);
+                b = hqrnduniformi(state, n/maxcnt+1, _state);
+                if( b==n/maxcnt&&a>=n%maxcnt )
+                {
+                    continue;
+                }
+                result = a+maxcnt*b;
+            }
+            while(result<0);
+        }
     }
-    while(result>=mx);
-    result = result%n;
+    else
+    {
+        
+        /*
+         * N<=MaxCnt
+         *
+         * Code below is a bit complicated because we can not simply
+         * return "HQRNDIntegerBase() mod N" - it will be skewed for
+         * large N's in [0.1*HQRNDMax...HQRNDMax].
+         */
+        mx = maxcnt-maxcnt%n;
+        do
+        {
+            result = hqrnd_hqrndintegerbase(state, _state);
+        }
+        while(result>=mx);
+        result = result%n;
+    }
     return result;
 }
 
@@ -1668,6 +2631,7 @@ double hqrndcontinuous(hqrndstate* state,
 
 
 /*************************************************************************
+This function returns random integer in [0,HQRNDMax]
 
 L'Ecuyer, Efficient and portable combined random number generators
 *************************************************************************/
@@ -1700,6 +2664,7 @@ static ae_int_t hqrnd_hqrndintegerbase(hqrndstate* state,
     {
         result = result+2147483562;
     }
+    result = result-1;
     return result;
 }
 
@@ -1718,7 +2683,6 @@ ae_bool _hqrndstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool 
     hqrndstate *src = (hqrndstate*)_src;
     dst->s1 = src->s1;
     dst->s2 = src->s2;
-    dst->v = src->v;
     dst->magicv = src->magicv;
     return ae_true;
 }
@@ -2735,6 +3699,8 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
     double ds;
     double s;
     double v;
+    double v0;
+    double v1;
 
 
     ae_assert(kdt->n>0, "KDTreeGenerateTreeRec: internal error", _state);
@@ -2758,8 +3724,9 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
     ny = kdt->ny;
     
     /*
-     * select dimension to split:
+     * Select dimension to split:
      * * D is a dimension number
+     * In case bounding box has zero size, we enforce creation of the leaf node.
      */
     d = 0;
     ds = kdt->curboxmax.ptr.p_double[0]-kdt->curboxmin.ptr.p_double[0];
@@ -2772,10 +3739,21 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
             d = i;
         }
     }
+    if( ae_fp_eq(ds,0) )
+    {
+        kdt->nodes.ptr.p_int[*nodesoffs+0] = i2-i1;
+        kdt->nodes.ptr.p_int[*nodesoffs+1] = i1;
+        *nodesoffs = *nodesoffs+2;
+        return;
+    }
     
     /*
      * Select split position S using sliding midpoint rule,
-     * rearrange points into [I1,I3) and [I3,I2)
+     * rearrange points into [I1,I3) and [I3,I2).
+     *
+     * In case all points has same value of D-th component
+     * (MinV=MaxV) we enforce D-th dimension of bounding
+     * box to become exactly zero and repeat tree construction.
      */
     s = kdt->curboxmin.ptr.p_double[d]+0.5*ds;
     ae_v_move(&kdt->buf.ptr.p_double[0], 1, &kdt->xy.ptr.pp_double[i1][d], kdt->xy.stride, ae_v_len(0,i2-i1-1));
@@ -2808,6 +3786,23 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
             cntgreater = cntgreater+1;
         }
     }
+    if( ae_fp_eq(minv,maxv) )
+    {
+        
+        /*
+         * In case all points has same value of D-th component
+         * (MinV=MaxV) we enforce D-th dimension of bounding
+         * box to become exactly zero and repeat tree construction.
+         */
+        v0 = kdt->curboxmin.ptr.p_double[d];
+        v1 = kdt->curboxmax.ptr.p_double[d];
+        kdt->curboxmin.ptr.p_double[d] = minv;
+        kdt->curboxmax.ptr.p_double[d] = maxv;
+        nearestneighbor_kdtreegeneratetreerec(kdt, nodesoffs, splitsoffs, i1, i2, maxleafsize, _state);
+        kdt->curboxmin.ptr.p_double[d] = v0;
+        kdt->curboxmax.ptr.p_double[d] = v1;
+        return;
+    }
     if( cntless>0&&cntgreater>0 )
     {
         
@@ -2833,7 +3828,7 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
             s = minv;
             if( minidx!=i1 )
             {
-                for(i=0; i<=2*kdt->nx+kdt->ny-1; i++)
+                for(i=0; i<=2*nx+ny-1; i++)
                 {
                     v = kdt->xy.ptr.pp_double[minidx][i];
                     kdt->xy.ptr.pp_double[minidx][i] = kdt->xy.ptr.pp_double[i1][i];
@@ -2856,7 +3851,7 @@ static void nearestneighbor_kdtreegeneratetreerec(kdtree* kdt,
             s = maxv;
             if( maxidx!=i2-1 )
             {
-                for(i=0; i<=2*kdt->nx+kdt->ny-1; i++)
+                for(i=0; i<=2*nx+ny-1; i++)
                 {
                     v = kdt->xy.ptr.pp_double[maxidx][i];
                     kdt->xy.ptr.pp_double[maxidx][i] = kdt->xy.ptr.pp_double[i2-1][i];
@@ -3465,6 +4460,1005 @@ void _kdtree_destroy(void* _p)
     ae_vector_destroy(&p->buf);
     ae_vector_destroy(&p->curboxmin);
     ae_vector_destroy(&p->curboxmax);
+}
+
+
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Counts number of True values in the boolean 1D array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugb1count(/* Boolean */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t result;
+
+
+    result = 0;
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        if( a->ptr.p_bool[i] )
+        {
+            result = result+1;
+        }
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by NOT(a[i]).
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1not(/* Boolean */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+
+
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_bool[i] = !a->ptr.p_bool[i];
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1appendcopy(/* Boolean */ ae_vector* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_vector b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_vector_init(&b, 0, DT_BOOL, _state, ae_true);
+
+    ae_vector_set_length(&b, a->cnt, _state);
+    for(i=0; i<=b.cnt-1; i++)
+    {
+        b.ptr.p_bool[i] = a->ptr.p_bool[i];
+    }
+    ae_vector_set_length(a, 2*b.cnt, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_bool[i] = b.ptr.p_bool[i%b.cnt];
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered elements set to True.
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb1outeven(ae_int_t n,
+     /* Boolean */ ae_vector* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+
+    ae_vector_clear(a);
+
+    ae_vector_set_length(a, n, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_bool[i] = i%2==0;
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugi1sum(/* Integer */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t result;
+
+
+    result = 0;
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        result = result+a->ptr.p_int[i];
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1neg(/* Integer */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+
+
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_int[i] = -a->ptr.p_int[i];
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1appendcopy(/* Integer */ ae_vector* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_vector b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_vector_init(&b, 0, DT_INT, _state, ae_true);
+
+    ae_vector_set_length(&b, a->cnt, _state);
+    for(i=0; i<=b.cnt-1; i++)
+    {
+        b.ptr.p_int[i] = a->ptr.p_int[i];
+    }
+    ae_vector_set_length(a, 2*b.cnt, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_int[i] = b.ptr.p_int[i%b.cnt];
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[I] set to I, and odd-numbered
+ones set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi1outeven(ae_int_t n,
+     /* Integer */ ae_vector* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+
+    ae_vector_clear(a);
+
+    ae_vector_set_length(a, n, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        if( i%2==0 )
+        {
+            a->ptr.p_int[i] = i;
+        }
+        else
+        {
+            a->ptr.p_int[i] = 0;
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugr1sum(/* Real    */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+    double result;
+
+
+    result = 0;
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        result = result+a->ptr.p_double[i];
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1neg(/* Real    */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+
+
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_double[i] = -a->ptr.p_double[i];
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1appendcopy(/* Real    */ ae_vector* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_vector b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_vector_init(&b, 0, DT_REAL, _state, ae_true);
+
+    ae_vector_set_length(&b, a->cnt, _state);
+    for(i=0; i<=b.cnt-1; i++)
+    {
+        b.ptr.p_double[i] = a->ptr.p_double[i];
+    }
+    ae_vector_set_length(a, 2*b.cnt, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_double[i] = b.ptr.p_double[i%b.cnt];
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[I] set to I*0.25,
+and odd-numbered ones are set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr1outeven(ae_int_t n,
+     /* Real    */ ae_vector* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+
+    ae_vector_clear(a);
+
+    ae_vector_set_length(a, n, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        if( i%2==0 )
+        {
+            a->ptr.p_double[i] = i*0.25;
+        }
+        else
+        {
+            a->ptr.p_double[i] = 0;
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_complex xdebugc1sum(/* Complex */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_complex result;
+
+
+    result = ae_complex_from_d(0);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        result = ae_c_add(result,a->ptr.p_complex[i]);
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -A[I]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1neg(/* Complex */ ae_vector* a, ae_state *_state)
+{
+    ae_int_t i;
+
+
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_complex[i] = ae_c_neg(a->ptr.p_complex[i]);
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Appends copy of array to itself.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1appendcopy(/* Complex */ ae_vector* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_vector b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_vector_init(&b, 0, DT_COMPLEX, _state, ae_true);
+
+    ae_vector_set_length(&b, a->cnt, _state);
+    for(i=0; i<=b.cnt-1; i++)
+    {
+        b.ptr.p_complex[i] = a->ptr.p_complex[i];
+    }
+    ae_vector_set_length(a, 2*b.cnt, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        a->ptr.p_complex[i] = b.ptr.p_complex[i%b.cnt];
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate N-element array with even-numbered A[K] set to (x,y) = (K*0.25, K*0.125)
+and odd-numbered ones are set to 0.
+
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc1outeven(ae_int_t n,
+     /* Complex */ ae_vector* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+
+    ae_vector_clear(a);
+
+    ae_vector_set_length(a, n, _state);
+    for(i=0; i<=a->cnt-1; i++)
+    {
+        if( i%2==0 )
+        {
+            a->ptr.p_complex[i].x = i*0.250;
+            a->ptr.p_complex[i].y = i*0.125;
+        }
+        else
+        {
+            a->ptr.p_complex[i] = ae_complex_from_d(0);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Counts number of True values in the boolean 2D array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugb2count(/* Boolean */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    ae_int_t result;
+
+
+    result = 0;
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            if( a->ptr.pp_bool[i][j] )
+            {
+                result = result+1;
+            }
+        }
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by NOT(a[i]).
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2not(/* Boolean */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_bool[i][j] = !a->ptr.pp_bool[i][j];
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2transpose(/* Boolean */ ae_matrix* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_int_t j;
+    ae_matrix b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_matrix_init(&b, 0, 0, DT_BOOL, _state, ae_true);
+
+    ae_matrix_set_length(&b, a->rows, a->cols, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            b.ptr.pp_bool[i][j] = a->ptr.pp_bool[i][j];
+        }
+    }
+    ae_matrix_set_length(a, b.cols, b.rows, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            a->ptr.pp_bool[j][i] = b.ptr.pp_bool[i][j];
+        }
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J)>0"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugb2outsin(ae_int_t m,
+     ae_int_t n,
+     /* Boolean */ ae_matrix* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+    ae_matrix_clear(a);
+
+    ae_matrix_set_length(a, m, n, _state);
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_bool[i][j] = ae_fp_greater(ae_sin(3*i+5*j, _state),0);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_int_t xdebugi2sum(/* Integer */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    ae_int_t result;
+
+
+    result = 0;
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            result = result+a->ptr.pp_int[i][j];
+        }
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2neg(/* Integer */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_int[i][j] = -a->ptr.pp_int[i][j];
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2transpose(/* Integer */ ae_matrix* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_int_t j;
+    ae_matrix b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_matrix_init(&b, 0, 0, DT_INT, _state, ae_true);
+
+    ae_matrix_set_length(&b, a->rows, a->cols, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            b.ptr.pp_int[i][j] = a->ptr.pp_int[i][j];
+        }
+    }
+    ae_matrix_set_length(a, b.cols, b.rows, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            a->ptr.pp_int[j][i] = b.ptr.pp_int[i][j];
+        }
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sign(Sin(3*I+5*J))"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugi2outsin(ae_int_t m,
+     ae_int_t n,
+     /* Integer */ ae_matrix* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+    ae_matrix_clear(a);
+
+    ae_matrix_set_length(a, m, n, _state);
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_int[i][j] = ae_sign(ae_sin(3*i+5*j, _state), _state);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugr2sum(/* Real    */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    double result;
+
+
+    result = 0;
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            result = result+a->ptr.pp_double[i][j];
+        }
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2neg(/* Real    */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_double[i][j] = -a->ptr.pp_double[i][j];
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2transpose(/* Real    */ ae_matrix* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_int_t j;
+    ae_matrix b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_matrix_init(&b, 0, 0, DT_REAL, _state, ae_true);
+
+    ae_matrix_set_length(&b, a->rows, a->cols, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            b.ptr.pp_double[i][j] = a->ptr.pp_double[i][j];
+        }
+    }
+    ae_matrix_set_length(a, b.cols, b.rows, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            a->ptr.pp_double[j][i] = b.ptr.pp_double[i][j];
+        }
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J)"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugr2outsin(ae_int_t m,
+     ae_int_t n,
+     /* Real    */ ae_matrix* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+    ae_matrix_clear(a);
+
+    ae_matrix_set_length(a, m, n, _state);
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_double[i][j] = ae_sin(3*i+5*j, _state);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of elements in the array.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+ae_complex xdebugc2sum(/* Complex */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    ae_complex result;
+
+
+    result = ae_complex_from_d(0);
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            result = ae_c_add(result,a->ptr.pp_complex[i][j]);
+        }
+    }
+    return result;
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Replace all values in array by -a[i,j]
+Array is passed using "shared" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2neg(/* Complex */ ae_matrix* a, ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_complex[i][j] = ae_c_neg(a->ptr.pp_complex[i][j]);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Transposes array.
+Array is passed using "var" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2transpose(/* Complex */ ae_matrix* a, ae_state *_state)
+{
+    ae_frame _frame_block;
+    ae_int_t i;
+    ae_int_t j;
+    ae_matrix b;
+
+    ae_frame_make(_state, &_frame_block);
+    ae_matrix_init(&b, 0, 0, DT_COMPLEX, _state, ae_true);
+
+    ae_matrix_set_length(&b, a->rows, a->cols, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            b.ptr.pp_complex[i][j] = a->ptr.pp_complex[i][j];
+        }
+    }
+    ae_matrix_set_length(a, b.cols, b.rows, _state);
+    for(i=0; i<=b.rows-1; i++)
+    {
+        for(j=0; j<=b.cols-1; j++)
+        {
+            a->ptr.pp_complex[j][i] = b.ptr.pp_complex[i][j];
+        }
+    }
+    ae_frame_leave(_state);
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Generate MxN matrix with elements set to "Sin(3*I+5*J),Cos(3*I+5*J)"
+Array is passed using "out" convention.
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+void xdebugc2outsincos(ae_int_t m,
+     ae_int_t n,
+     /* Complex */ ae_matrix* a,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+    ae_matrix_clear(a);
+
+    ae_matrix_set_length(a, m, n, _state);
+    for(i=0; i<=a->rows-1; i++)
+    {
+        for(j=0; j<=a->cols-1; j++)
+        {
+            a->ptr.pp_complex[i][j].x = ae_sin(3*i+5*j, _state);
+            a->ptr.pp_complex[i][j].y = ae_cos(3*i+5*j, _state);
+        }
+    }
+}
+
+
+/*************************************************************************
+This is debug function intended for testing ALGLIB interface generator.
+Never use it in any real life project.
+
+Returns sum of a[i,j]*(1+b[i,j]) such that c[i,j] is True
+
+  -- ALGLIB --
+     Copyright 11.10.2013 by Bochkanov Sergey
+*************************************************************************/
+double xdebugmaskedbiasedproductsum(ae_int_t m,
+     ae_int_t n,
+     /* Real    */ ae_matrix* a,
+     /* Real    */ ae_matrix* b,
+     /* Boolean */ ae_matrix* c,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    double result;
+
+
+    ae_assert(m>=a->rows, "Assertion failed", _state);
+    ae_assert(m>=b->rows, "Assertion failed", _state);
+    ae_assert(m>=c->rows, "Assertion failed", _state);
+    ae_assert(n>=a->cols, "Assertion failed", _state);
+    ae_assert(n>=b->cols, "Assertion failed", _state);
+    ae_assert(n>=c->cols, "Assertion failed", _state);
+    result = 0.0;
+    for(i=0; i<=m-1; i++)
+    {
+        for(j=0; j<=n-1; j++)
+        {
+            if( c->ptr.pp_bool[i][j] )
+            {
+                result = result+a->ptr.pp_double[i][j]*(1+b->ptr.pp_double[i][j]);
+            }
+        }
+    }
+    return result;
 }
 
 

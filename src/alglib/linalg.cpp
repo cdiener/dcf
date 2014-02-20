@@ -96,6 +96,32 @@ void rmatrixtranspose(const ae_int_t m, const ae_int_t n, const real_2d_array &a
 }
 
 /*************************************************************************
+This code enforces symmetricy of the matrix by copying Upper part to lower
+one (or vice versa).
+
+INPUT PARAMETERS:
+    A   -   matrix
+    N   -   number of rows/columns
+    IsUpper - whether we want to copy upper triangle to lower one (True)
+            or vice versa (False).
+*************************************************************************/
+void rmatrixenforcesymmetricity(const real_2d_array &a, const ae_int_t n, const bool isupper)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::rmatrixenforcesymmetricity(const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), n, isupper, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
 Copy
 
 Input parameters:
@@ -307,35 +333,9 @@ void rmatrixmv(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const
 }
 
 /*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+void cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -351,36 +351,27 @@ void cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array
     }
 }
 
+
+void smp_cmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_cmatrixrighttrsm(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), i1, j1, isupper, isunit, optype, const_cast<alglib_impl::ae_matrix*>(x.c_ptr()), i2, j2, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+void cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -396,35 +387,27 @@ void cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array 
     }
 }
 
+
+void smp_cmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const complex_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const complex_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_cmatrixlefttrsm(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), i1, j1, isupper, isunit, optype, const_cast<alglib_impl::ae_matrix*>(x.c_ptr()), i2, j2, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+void rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -440,35 +423,27 @@ void rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a
     }
 }
 
+
+void smp_rmatrixrighttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_rmatrixrighttrsm(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), i1, j1, isupper, isunit, optype, const_cast<alglib_impl::ae_matrix*>(x.c_ptr()), i2, j2, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
 
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+void rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -484,40 +459,27 @@ void rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a,
     }
 }
 
+
+void smp_rmatrixlefttrsm(const ae_int_t m, const ae_int_t n, const real_2d_array &a, const ae_int_t i1, const ae_int_t j1, const bool isupper, const bool isunit, const ae_int_t optype, const real_2d_array &x, const ae_int_t i2, const ae_int_t j2)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_rmatrixlefttrsm(m, n, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), i1, j1, isupper, isunit, optype, const_cast<alglib_impl::ae_matrix*>(x.c_ptr()), i2, j2, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^H+beta*C  or  C=alpha*A^H*A+beta*C
-where:
-* C is NxN Hermitian matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^H is calculated, KxN matrix otherwise
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^H is calculated
-                * 2 - A^H*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
+void cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -533,40 +495,27 @@ void cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const c
     }
 }
 
+
+void smp_cmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_cmatrixsyrk(n, k, alpha, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), ia, ja, optypea, beta, const_cast<alglib_impl::ae_matrix*>(c.c_ptr()), ic, jc, isupper, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^T+beta*C  or  C=alpha*A^T*A+beta*C
-where:
-* C is NxN symmetric matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^T is calculated, KxN matrix otherwise
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^T is calculated
-                * 2 - A^T*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
+void rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
@@ -582,55 +531,50 @@ void rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const r
     }
 }
 
+
+void smp_rmatrixsyrk(const ae_int_t n, const ae_int_t k, const double alpha, const real_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const double beta, const real_2d_array &c, const ae_int_t ic, const ae_int_t jc, const bool isupper)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_rmatrixsyrk(n, k, alpha, const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), ia, ja, optypea, beta, const_cast<alglib_impl::ae_matrix*>(c.c_ptr()), ic, jc, isupper, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
 /*************************************************************************
-This subroutine calculates C = alpha*op1(A)*op2(B) +beta*C where:
-* C is MxN general matrix
-* op1(A) is MxK matrix
-* op2(B) is KxN matrix
-* "op" may be identity transformation, transposition, conjugate transposition
 
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    M       -   matrix size, M>0
-    N       -   matrix size, N>0
-    K       -   matrix size, K>0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    B       -   matrix
-    IB      -   submatrix offset
-    JB      -   submatrix offset
-    OpTypeB -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
 *************************************************************************/
-void cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, complex_2d_array &c, const ae_int_t ic, const ae_int_t jc)
+void cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc)
 {
     alglib_impl::ae_state _alglib_env_state;
     alglib_impl::ae_state_init(&_alglib_env_state);
     try
     {
         alglib_impl::cmatrixgemm(m, n, k, *alpha.c_ptr(), const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), ia, ja, optypea, const_cast<alglib_impl::ae_matrix*>(b.c_ptr()), ib, jb, optypeb, *beta.c_ptr(), const_cast<alglib_impl::ae_matrix*>(c.c_ptr()), ic, jc, &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+
+void smp_cmatrixgemm(const ae_int_t m, const ae_int_t n, const ae_int_t k, const alglib::complex alpha, const complex_2d_array &a, const ae_int_t ia, const ae_int_t ja, const ae_int_t optypea, const complex_2d_array &b, const ae_int_t ib, const ae_int_t jb, const ae_int_t optypeb, const alglib::complex beta, const complex_2d_array &c, const ae_int_t ic, const ae_int_t jc)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::_pexec_cmatrixgemm(m, n, k, *alpha.c_ptr(), const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), ia, ja, optypea, const_cast<alglib_impl::ae_matrix*>(b.c_ptr()), ib, jb, optypeb, *beta.c_ptr(), const_cast<alglib_impl::ae_matrix*>(c.c_ptr()), ic, jc, &_alglib_env_state);
         alglib_impl::ae_state_clear(&_alglib_env_state);
         return;
     }
@@ -7127,6 +7071,8 @@ bool rmatrixschur(real_2d_array &a, const ae_int_t n, real_2d_array &s)
 /////////////////////////////////////////////////////////////////////////
 namespace alglib_impl
 {
+static ae_int_t ablas_rgemmparallelsize = 64;
+static ae_int_t ablas_cgemmparallelsize = 64;
 static void ablas_ablasinternalsplitlength(ae_int_t n,
      ae_int_t nb,
      ae_int_t* n1,
@@ -7205,40 +7151,6 @@ static void ablas_rmatrixsyrk2(ae_int_t n,
      ae_int_t ic,
      ae_int_t jc,
      ae_bool isupper,
-     ae_state *_state);
-static void ablas_cmatrixgemmk(ae_int_t m,
-     ae_int_t n,
-     ae_int_t k,
-     ae_complex alpha,
-     /* Complex */ ae_matrix* a,
-     ae_int_t ia,
-     ae_int_t ja,
-     ae_int_t optypea,
-     /* Complex */ ae_matrix* b,
-     ae_int_t ib,
-     ae_int_t jb,
-     ae_int_t optypeb,
-     ae_complex beta,
-     /* Complex */ ae_matrix* c,
-     ae_int_t ic,
-     ae_int_t jc,
-     ae_state *_state);
-static void ablas_rmatrixgemmk(ae_int_t m,
-     ae_int_t n,
-     ae_int_t k,
-     double alpha,
-     /* Real    */ ae_matrix* a,
-     ae_int_t ia,
-     ae_int_t ja,
-     ae_int_t optypea,
-     /* Real    */ ae_matrix* b,
-     ae_int_t ib,
-     ae_int_t jb,
-     ae_int_t optypeb,
-     double beta,
-     /* Real    */ ae_matrix* c,
-     ae_int_t ic,
-     ae_int_t jc,
      ae_state *_state);
 
 
@@ -7948,6 +7860,48 @@ void rmatrixtranspose(ae_int_t m,
 
 
 /*************************************************************************
+This code enforces symmetricy of the matrix by copying Upper part to lower
+one (or vice versa).
+
+INPUT PARAMETERS:
+    A   -   matrix
+    N   -   number of rows/columns
+    IsUpper - whether we want to copy upper triangle to lower one (True)
+            or vice versa (False).
+*************************************************************************/
+void rmatrixenforcesymmetricity(/* Real    */ ae_matrix* a,
+     ae_int_t n,
+     ae_bool isupper,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+
+
+    if( isupper )
+    {
+        for(i=0; i<=n-1; i++)
+        {
+            for(j=i+1; j<=n-1; j++)
+            {
+                a->ptr.pp_double[j][i] = a->ptr.pp_double[i][j];
+            }
+        }
+    }
+    else
+    {
+        for(i=0; i<=n-1; i++)
+        {
+            for(j=i+1; j<=n-1; j++)
+            {
+                a->ptr.pp_double[i][j] = a->ptr.pp_double[j][i];
+            }
+        }
+    }
+}
+
+
+/*************************************************************************
 Copy
 
 Input parameters:
@@ -8319,35 +8273,6 @@ void rmatrixmv(ae_int_t m,
 }
 
 
-/*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
-
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
-*************************************************************************/
 void cmatrixrighttrsm(ae_int_t m,
      ae_int_t n,
      /* Complex */ ae_matrix* a,
@@ -8381,6 +8306,7 @@ void cmatrixrighttrsm(ae_int_t m,
         ablascomplexsplitlength(a, m, &s1, &s2, _state);
         cmatrixrighttrsm(s1, n, a, i1, j1, isupper, isunit, optype, x, i2, j2, _state);
         cmatrixrighttrsm(s2, n, a, i1, j1, isupper, isunit, optype, x, i2+s1, j2, _state);
+        return;
     }
     else
     {
@@ -8452,34 +8378,24 @@ void cmatrixrighttrsm(ae_int_t m,
 
 
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition, conjugate transposition
-
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_cmatrixrighttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Complex */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Complex */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state)
+{
+    cmatrixrighttrsm(m,n,a,i1,j1,isupper,isunit,optype,x,i2,j2, _state);
+}
+
+
 void cmatrixlefttrsm(ae_int_t m,
      ae_int_t n,
      /* Complex */ ae_matrix* a,
@@ -8513,6 +8429,7 @@ void cmatrixlefttrsm(ae_int_t m,
         ablascomplexsplitlength(x, n, &s1, &s2, _state);
         cmatrixlefttrsm(m, s1, a, i1, j1, isupper, isunit, optype, x, i2, j2, _state);
         cmatrixlefttrsm(m, s2, a, i1, j1, isupper, isunit, optype, x, i2, j2+s1, _state);
+        return;
     }
     else
     {
@@ -8578,33 +8495,24 @@ void cmatrixlefttrsm(ae_int_t m,
 
 
 /*************************************************************************
-This subroutine calculates X*op(A^-1) where:
-* X is MxN general matrix
-* A is NxN upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
-
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+N-1,J1:J1+N-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_cmatrixlefttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Complex */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Complex */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state)
+{
+    cmatrixlefttrsm(m,n,a,i1,j1,isupper,isunit,optype,x,i2,j2, _state);
+}
+
+
 void rmatrixrighttrsm(ae_int_t m,
      ae_int_t n,
      /* Real    */ ae_matrix* a,
@@ -8638,6 +8546,7 @@ void rmatrixrighttrsm(ae_int_t m,
         ablassplitlength(a, m, &s1, &s2, _state);
         rmatrixrighttrsm(s1, n, a, i1, j1, isupper, isunit, optype, x, i2, j2, _state);
         rmatrixrighttrsm(s2, n, a, i1, j1, isupper, isunit, optype, x, i2+s1, j2, _state);
+        return;
     }
     else
     {
@@ -8709,33 +8618,24 @@ void rmatrixrighttrsm(ae_int_t m,
 
 
 /*************************************************************************
-This subroutine calculates op(A^-1)*X where:
-* X is MxN general matrix
-* A is MxM upper/lower triangular/unitriangular matrix
-* "op" may be identity transformation, transposition
-
-Multiplication result replaces X.
-Cache-oblivious algorithm is used.
-
-INPUT PARAMETERS
-    N   -   matrix size, N>=0
-    M   -   matrix size, N>=0
-    A       -   matrix, actial matrix is stored in A[I1:I1+M-1,J1:J1+M-1]
-    I1      -   submatrix offset
-    J1      -   submatrix offset
-    IsUpper -   whether matrix is upper triangular
-    IsUnit  -   whether matrix is unitriangular
-    OpType  -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-    X   -   matrix, actial matrix is stored in X[I2:I2+M-1,J2:J2+N-1]
-    I2  -   submatrix offset
-    J2  -   submatrix offset
-
-  -- ALGLIB routine --
-     15.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_rmatrixrighttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Real    */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Real    */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state)
+{
+    rmatrixrighttrsm(m,n,a,i1,j1,isupper,isunit,optype,x,i2,j2, _state);
+}
+
+
 void rmatrixlefttrsm(ae_int_t m,
      ae_int_t n,
      /* Real    */ ae_matrix* a,
@@ -8834,38 +8734,24 @@ void rmatrixlefttrsm(ae_int_t m,
 
 
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^H+beta*C  or  C=alpha*A^H*A+beta*C
-where:
-* C is NxN Hermitian matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^H is calculated, KxN matrix otherwise
-
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^H is calculated
-                * 2 - A^H*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_rmatrixlefttrsm(ae_int_t m,
+    ae_int_t n,
+    /* Real    */ ae_matrix* a,
+    ae_int_t i1,
+    ae_int_t j1,
+    ae_bool isupper,
+    ae_bool isunit,
+    ae_int_t optype,
+    /* Real    */ ae_matrix* x,
+    ae_int_t i2,
+    ae_int_t j2, ae_state *_state)
+{
+    rmatrixlefttrsm(m,n,a,i1,j1,isupper,isunit,optype,x,i2,j2, _state);
+}
+
+
 void cmatrixsyrk(ae_int_t n,
      ae_int_t k,
      double alpha,
@@ -8949,38 +8835,25 @@ void cmatrixsyrk(ae_int_t n,
 
 
 /*************************************************************************
-This subroutine calculates  C=alpha*A*A^T+beta*C  or  C=alpha*A^T*A+beta*C
-where:
-* C is NxN symmetric matrix given by its upper/lower triangle
-* A is NxK matrix when A*A^T is calculated, KxN matrix otherwise
-
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    N       -   matrix size, N>=0
-    K       -   matrix size, K>=0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   multiplication type:
-                * 0 - A*A^T is calculated
-                * 2 - A^T*A is calculated
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-    IsUpper -   whether C is upper triangular or lower triangular
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_cmatrixsyrk(ae_int_t n,
+    ae_int_t k,
+    double alpha,
+    /* Complex */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    double beta,
+    /* Complex */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc,
+    ae_bool isupper, ae_state *_state)
+{
+    cmatrixsyrk(n,k,alpha,a,ia,ja,optypea,beta,c,ic,jc,isupper, _state);
+}
+
+
 void rmatrixsyrk(ae_int_t n,
      ae_int_t k,
      double alpha,
@@ -9001,11 +8874,23 @@ void rmatrixsyrk(ae_int_t n,
 
 
     bs = ablasblocksize(a, _state);
+    
+    /*
+     * Use MKL or generic basecase code
+     */
+    if( rmatrixsyrkmkl(n, k, alpha, a, ia, ja, optypea, beta, c, ic, jc, isupper, _state) )
+    {
+        return;
+    }
     if( n<=bs&&k<=bs )
     {
         ablas_rmatrixsyrk2(n, k, alpha, a, ia, ja, optypea, beta, c, ic, jc, isupper, _state);
         return;
     }
+    
+    /*
+     * Recursive subdivision of the problem
+     */
     if( k>=n )
     {
         
@@ -9064,47 +8949,25 @@ void rmatrixsyrk(ae_int_t n,
 
 
 /*************************************************************************
-This subroutine calculates C = alpha*op1(A)*op2(B) +beta*C where:
-* C is MxN general matrix
-* op1(A) is MxK matrix
-* op2(B) is KxN matrix
-* "op" may be identity transformation, transposition, conjugate transposition
-
-Additional info:
-* cache-oblivious algorithm is used.
-* multiplication result replaces C. If Beta=0, C elements are not used in
-  calculations (not multiplied by zero - just not referenced)
-* if Alpha=0, A is not used (not multiplied by zero - just not referenced)
-* if both Beta and Alpha are zero, C is filled by zeros.
-
-INPUT PARAMETERS
-    M       -   matrix size, M>0
-    N       -   matrix size, N>0
-    K       -   matrix size, K>0
-    Alpha   -   coefficient
-    A       -   matrix
-    IA      -   submatrix offset
-    JA      -   submatrix offset
-    OpTypeA -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    B       -   matrix
-    IB      -   submatrix offset
-    JB      -   submatrix offset
-    OpTypeB -   transformation type:
-                * 0 - no transformation
-                * 1 - transposition
-                * 2 - conjugate transposition
-    Beta    -   coefficient
-    C       -   matrix
-    IC      -   submatrix offset
-    JC      -   submatrix offset
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
 *************************************************************************/
+void _pexec_rmatrixsyrk(ae_int_t n,
+    ae_int_t k,
+    double alpha,
+    /* Real    */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    double beta,
+    /* Real    */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc,
+    ae_bool isupper, ae_state *_state)
+{
+    rmatrixsyrk(n,k,alpha,a,ia,ja,optypea,beta,c,ic,jc,isupper, _state);
+}
+
+
 void cmatrixgemm(ae_int_t m,
      ae_int_t n,
      ae_int_t k,
@@ -9131,9 +8994,19 @@ void cmatrixgemm(ae_int_t m,
     bs = ablascomplexblocksize(a, _state);
     if( (m<=bs&&n<=bs)&&k<=bs )
     {
-        ablas_cmatrixgemmk(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        cmatrixgemmk(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
         return;
     }
+    
+    /*
+     * SMP support is turned on when M or N are larger than some boundary value.
+     * Magnitude of K is not taken into account because splitting on K does not
+     * allow us to spawn child tasks.
+     */
+    
+    /*
+     * Recursive algorithm: parallel splitting on M/N
+     */
     if( m>=n&&m>=k )
     {
         
@@ -9171,35 +9044,60 @@ void cmatrixgemm(ae_int_t m,
         }
         return;
     }
-    if( k>=m&&k>=n )
+    
+    /*
+     * Recursive algorithm: serial splitting on K
+     */
+    
+    /*
+     * A*B = (A1 A2)*(B1 B2)^T
+     */
+    ablascomplexsplitlength(a, k, &s1, &s2, _state);
+    if( optypea==0&&optypeb==0 )
     {
-        
-        /*
-         * A*B = (A1 A2)*(B1 B2)^T
-         */
-        ablascomplexsplitlength(a, k, &s1, &s2, _state);
-        if( optypea==0&&optypeb==0 )
-        {
-            cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            cmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib+s1, jb, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
-        }
-        if( optypea==0&&optypeb!=0 )
-        {
-            cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            cmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib, jb+s1, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
-        }
-        if( optypea!=0&&optypeb==0 )
-        {
-            cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            cmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib+s1, jb, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
-        }
-        if( optypea!=0&&optypeb!=0 )
-        {
-            cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            cmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib, jb+s1, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
-        }
-        return;
+        cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        cmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib+s1, jb, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
     }
+    if( optypea==0&&optypeb!=0 )
+    {
+        cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        cmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib, jb+s1, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
+    }
+    if( optypea!=0&&optypeb==0 )
+    {
+        cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        cmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib+s1, jb, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
+    }
+    if( optypea!=0&&optypeb!=0 )
+    {
+        cmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        cmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib, jb+s1, optypeb, ae_complex_from_d(1.0), c, ic, jc, _state);
+    }
+    return;
+}
+
+
+/*************************************************************************
+Single-threaded stub. HPC ALGLIB replaces it by multithreaded code.
+*************************************************************************/
+void _pexec_cmatrixgemm(ae_int_t m,
+    ae_int_t n,
+    ae_int_t k,
+    ae_complex alpha,
+    /* Complex */ ae_matrix* a,
+    ae_int_t ia,
+    ae_int_t ja,
+    ae_int_t optypea,
+    /* Complex */ ae_matrix* b,
+    ae_int_t ib,
+    ae_int_t jb,
+    ae_int_t optypeb,
+    ae_complex beta,
+    /* Complex */ ae_matrix* c,
+    ae_int_t ic,
+    ae_int_t jc, ae_state *_state)
+{
+    cmatrixgemm(m,n,k,alpha,a,ia,ja,optypea,b,ib,jb,optypeb,beta,c,ic,jc, _state);
 }
 
 
@@ -9229,22 +9127,34 @@ void rmatrixgemm(ae_int_t m,
     bs = ablasblocksize(a, _state);
     
     /*
-     * Use basecase code
+     * Check input sizes for correctness
      */
+    ae_assert(optypea==0||optypea==1, "RMatrixGEMM: incorrect OpTypeA (must be 0 or 1)", _state);
+    ae_assert(optypeb==0||optypeb==1, "RMatrixGEMM: incorrect OpTypeB (must be 0 or 1)", _state);
+    ae_assert(ic+m<=c->rows, "RMatrixGEMM: incorect size of output matrix C", _state);
+    ae_assert(jc+n<=c->cols, "RMatrixGEMM: incorect size of output matrix C", _state);
+    
+    /*
+     * Use MKL or ALGLIB basecase code
+     */
+    if( rmatrixgemmmkl(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state) )
+    {
+        return;
+    }
     if( (m<=bs&&n<=bs)&&k<=bs )
     {
-        ablas_rmatrixgemmk(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        rmatrixgemmk(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
         return;
     }
     
     /*
-     * SMP support is turned on when M or N are larger than or equal to 4*BlockSize.
+     * SMP support is turned on when M or N are larger than some boundary value.
      * Magnitude of K is not taken into account because splitting on K does not
      * allow us to spawn child tasks.
      */
     
     /*
-     * Recursive algorithm
+     * Recursive algorithm: split on M or N
      */
     if( m>=n&&m>=k )
     {
@@ -9284,35 +9194,36 @@ void rmatrixgemm(ae_int_t m,
         }
         return;
     }
-    if( k>=m&&k>=n )
+    
+    /*
+     * Recursive algorithm: split on K
+     */
+    
+    /*
+     * A*B = (A1 A2)*(B1 B2)^T
+     */
+    ablassplitlength(a, k, &s1, &s2, _state);
+    if( optypea==0&&optypeb==0 )
     {
-        
-        /*
-         * A*B = (A1 A2)*(B1 B2)^T
-         */
-        ablassplitlength(a, k, &s1, &s2, _state);
-        if( optypea==0&&optypeb==0 )
-        {
-            rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            rmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib+s1, jb, optypeb, 1.0, c, ic, jc, _state);
-        }
-        if( optypea==0&&optypeb!=0 )
-        {
-            rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            rmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib, jb+s1, optypeb, 1.0, c, ic, jc, _state);
-        }
-        if( optypea!=0&&optypeb==0 )
-        {
-            rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            rmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib+s1, jb, optypeb, 1.0, c, ic, jc, _state);
-        }
-        if( optypea!=0&&optypeb!=0 )
-        {
-            rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
-            rmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib, jb+s1, optypeb, 1.0, c, ic, jc, _state);
-        }
-        return;
+        rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        rmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib+s1, jb, optypeb, 1.0, c, ic, jc, _state);
     }
+    if( optypea==0&&optypeb!=0 )
+    {
+        rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        rmatrixgemm(m, n, s2, alpha, a, ia, ja+s1, optypea, b, ib, jb+s1, optypeb, 1.0, c, ic, jc, _state);
+    }
+    if( optypea!=0&&optypeb==0 )
+    {
+        rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        rmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib+s1, jb, optypeb, 1.0, c, ic, jc, _state);
+    }
+    if( optypea!=0&&optypeb!=0 )
+    {
+        rmatrixgemm(m, n, s1, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state);
+        rmatrixgemm(m, n, s2, alpha, a, ia+s1, ja, optypea, b, ib, jb+s1, optypeb, 1.0, c, ic, jc, _state);
+    }
+    return;
 }
 
 
@@ -10017,7 +9928,7 @@ static void ablas_rmatrixlefttrsm2(ae_int_t m,
     /*
      * Special case
      */
-    if( n*m==0 )
+    if( n==0||m==0 )
     {
         return;
     }
@@ -10413,458 +10324,6 @@ static void ablas_rmatrixsyrk2(ae_int_t n,
                 }
                 v = alpha*a->ptr.pp_double[ia+i][ja+j];
                 ae_v_addd(&c->ptr.pp_double[ic+j][jc+j1], 1, &a->ptr.pp_double[ia+i][ja+j1], 1, ae_v_len(jc+j1,jc+j2), v);
-            }
-        }
-        return;
-    }
-}
-
-
-/*************************************************************************
-GEMM kernel
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
-*************************************************************************/
-static void ablas_cmatrixgemmk(ae_int_t m,
-     ae_int_t n,
-     ae_int_t k,
-     ae_complex alpha,
-     /* Complex */ ae_matrix* a,
-     ae_int_t ia,
-     ae_int_t ja,
-     ae_int_t optypea,
-     /* Complex */ ae_matrix* b,
-     ae_int_t ib,
-     ae_int_t jb,
-     ae_int_t optypeb,
-     ae_complex beta,
-     /* Complex */ ae_matrix* c,
-     ae_int_t ic,
-     ae_int_t jc,
-     ae_state *_state)
-{
-    ae_int_t i;
-    ae_int_t j;
-    ae_complex v;
-
-
-    
-    /*
-     * Special case
-     */
-    if( m*n==0 )
-    {
-        return;
-    }
-    
-    /*
-     * Try optimized code
-     */
-    if( cmatrixgemmf(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state) )
-    {
-        return;
-    }
-    
-    /*
-     * Another special case
-     */
-    if( k==0 )
-    {
-        if( ae_c_neq_d(beta,0) )
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_c_mul(beta,c->ptr.pp_complex[ic+i][jc+j]);
-                }
-            }
-        }
-        else
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_complex_from_d(0);
-                }
-            }
-        }
-        return;
-    }
-    
-    /*
-     * General case
-     */
-    if( optypea==0&&optypeb!=0 )
-    {
-        
-        /*
-         * A*B'
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            for(j=0; j<=n-1; j++)
-            {
-                if( k==0||ae_c_eq_d(alpha,0) )
-                {
-                    v = ae_complex_from_d(0);
-                }
-                else
-                {
-                    if( optypeb==1 )
-                    {
-                        v = ae_v_cdotproduct(&a->ptr.pp_complex[ia+i][ja], 1, "N", &b->ptr.pp_complex[ib+j][jb], 1, "N", ae_v_len(ja,ja+k-1));
-                    }
-                    else
-                    {
-                        v = ae_v_cdotproduct(&a->ptr.pp_complex[ia+i][ja], 1, "N", &b->ptr.pp_complex[ib+j][jb], 1, "Conj", ae_v_len(ja,ja+k-1));
-                    }
-                }
-                if( ae_c_eq_d(beta,0) )
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_c_mul(alpha,v);
-                }
-                else
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_c_add(ae_c_mul(beta,c->ptr.pp_complex[ic+i][jc+j]),ae_c_mul(alpha,v));
-                }
-            }
-        }
-        return;
-    }
-    if( optypea==0&&optypeb==0 )
-    {
-        
-        /*
-         * A*B
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            if( ae_c_neq_d(beta,0) )
-            {
-                ae_v_cmulc(&c->ptr.pp_complex[ic+i][jc], 1, ae_v_len(jc,jc+n-1), beta);
-            }
-            else
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_complex_from_d(0);
-                }
-            }
-            if( ae_c_neq_d(alpha,0) )
-            {
-                for(j=0; j<=k-1; j++)
-                {
-                    v = ae_c_mul(alpha,a->ptr.pp_complex[ia+i][ja+j]);
-                    ae_v_caddc(&c->ptr.pp_complex[ic+i][jc], 1, &b->ptr.pp_complex[ib+j][jb], 1, "N", ae_v_len(jc,jc+n-1), v);
-                }
-            }
-        }
-        return;
-    }
-    if( optypea!=0&&optypeb!=0 )
-    {
-        
-        /*
-         * A'*B'
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            for(j=0; j<=n-1; j++)
-            {
-                if( ae_c_eq_d(alpha,0) )
-                {
-                    v = ae_complex_from_d(0);
-                }
-                else
-                {
-                    if( optypea==1 )
-                    {
-                        if( optypeb==1 )
-                        {
-                            v = ae_v_cdotproduct(&a->ptr.pp_complex[ia][ja+i], a->stride, "N", &b->ptr.pp_complex[ib+j][jb], 1, "N", ae_v_len(ia,ia+k-1));
-                        }
-                        else
-                        {
-                            v = ae_v_cdotproduct(&a->ptr.pp_complex[ia][ja+i], a->stride, "N", &b->ptr.pp_complex[ib+j][jb], 1, "Conj", ae_v_len(ia,ia+k-1));
-                        }
-                    }
-                    else
-                    {
-                        if( optypeb==1 )
-                        {
-                            v = ae_v_cdotproduct(&a->ptr.pp_complex[ia][ja+i], a->stride, "Conj", &b->ptr.pp_complex[ib+j][jb], 1, "N", ae_v_len(ia,ia+k-1));
-                        }
-                        else
-                        {
-                            v = ae_v_cdotproduct(&a->ptr.pp_complex[ia][ja+i], a->stride, "Conj", &b->ptr.pp_complex[ib+j][jb], 1, "Conj", ae_v_len(ia,ia+k-1));
-                        }
-                    }
-                }
-                if( ae_c_eq_d(beta,0) )
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_c_mul(alpha,v);
-                }
-                else
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_c_add(ae_c_mul(beta,c->ptr.pp_complex[ic+i][jc+j]),ae_c_mul(alpha,v));
-                }
-            }
-        }
-        return;
-    }
-    if( optypea!=0&&optypeb==0 )
-    {
-        
-        /*
-         * A'*B
-         */
-        if( ae_c_eq_d(beta,0) )
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_complex[ic+i][jc+j] = ae_complex_from_d(0);
-                }
-            }
-        }
-        else
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                ae_v_cmulc(&c->ptr.pp_complex[ic+i][jc], 1, ae_v_len(jc,jc+n-1), beta);
-            }
-        }
-        if( ae_c_neq_d(alpha,0) )
-        {
-            for(j=0; j<=k-1; j++)
-            {
-                for(i=0; i<=m-1; i++)
-                {
-                    if( optypea==1 )
-                    {
-                        v = ae_c_mul(alpha,a->ptr.pp_complex[ia+j][ja+i]);
-                    }
-                    else
-                    {
-                        v = ae_c_mul(alpha,ae_c_conj(a->ptr.pp_complex[ia+j][ja+i], _state));
-                    }
-                    ae_v_caddc(&c->ptr.pp_complex[ic+i][jc], 1, &b->ptr.pp_complex[ib+j][jb], 1, "N", ae_v_len(jc,jc+n-1), v);
-                }
-            }
-        }
-        return;
-    }
-}
-
-
-/*************************************************************************
-GEMM kernel
-
-  -- ALGLIB routine --
-     16.12.2009
-     Bochkanov Sergey
-*************************************************************************/
-static void ablas_rmatrixgemmk(ae_int_t m,
-     ae_int_t n,
-     ae_int_t k,
-     double alpha,
-     /* Real    */ ae_matrix* a,
-     ae_int_t ia,
-     ae_int_t ja,
-     ae_int_t optypea,
-     /* Real    */ ae_matrix* b,
-     ae_int_t ib,
-     ae_int_t jb,
-     ae_int_t optypeb,
-     double beta,
-     /* Real    */ ae_matrix* c,
-     ae_int_t ic,
-     ae_int_t jc,
-     ae_state *_state)
-{
-    ae_int_t i;
-    ae_int_t j;
-    double v;
-
-
-    
-    /*
-     * if matrix size is zero
-     */
-    if( m*n==0 )
-    {
-        return;
-    }
-    
-    /*
-     * Try optimized code
-     */
-    if( rmatrixgemmf(m, n, k, alpha, a, ia, ja, optypea, b, ib, jb, optypeb, beta, c, ic, jc, _state) )
-    {
-        return;
-    }
-    
-    /*
-     * if K=0, then C=Beta*C
-     */
-    if( k==0 )
-    {
-        if( ae_fp_neq(beta,1) )
-        {
-            if( ae_fp_neq(beta,0) )
-            {
-                for(i=0; i<=m-1; i++)
-                {
-                    for(j=0; j<=n-1; j++)
-                    {
-                        c->ptr.pp_double[ic+i][jc+j] = beta*c->ptr.pp_double[ic+i][jc+j];
-                    }
-                }
-            }
-            else
-            {
-                for(i=0; i<=m-1; i++)
-                {
-                    for(j=0; j<=n-1; j++)
-                    {
-                        c->ptr.pp_double[ic+i][jc+j] = 0;
-                    }
-                }
-            }
-        }
-        return;
-    }
-    
-    /*
-     * General case
-     */
-    if( optypea==0&&optypeb!=0 )
-    {
-        
-        /*
-         * A*B'
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            for(j=0; j<=n-1; j++)
-            {
-                if( k==0||ae_fp_eq(alpha,0) )
-                {
-                    v = 0;
-                }
-                else
-                {
-                    v = ae_v_dotproduct(&a->ptr.pp_double[ia+i][ja], 1, &b->ptr.pp_double[ib+j][jb], 1, ae_v_len(ja,ja+k-1));
-                }
-                if( ae_fp_eq(beta,0) )
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = alpha*v;
-                }
-                else
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = beta*c->ptr.pp_double[ic+i][jc+j]+alpha*v;
-                }
-            }
-        }
-        return;
-    }
-    if( optypea==0&&optypeb==0 )
-    {
-        
-        /*
-         * A*B
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            if( ae_fp_neq(beta,0) )
-            {
-                ae_v_muld(&c->ptr.pp_double[ic+i][jc], 1, ae_v_len(jc,jc+n-1), beta);
-            }
-            else
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = 0;
-                }
-            }
-            if( ae_fp_neq(alpha,0) )
-            {
-                for(j=0; j<=k-1; j++)
-                {
-                    v = alpha*a->ptr.pp_double[ia+i][ja+j];
-                    ae_v_addd(&c->ptr.pp_double[ic+i][jc], 1, &b->ptr.pp_double[ib+j][jb], 1, ae_v_len(jc,jc+n-1), v);
-                }
-            }
-        }
-        return;
-    }
-    if( optypea!=0&&optypeb!=0 )
-    {
-        
-        /*
-         * A'*B'
-         */
-        for(i=0; i<=m-1; i++)
-        {
-            for(j=0; j<=n-1; j++)
-            {
-                if( ae_fp_eq(alpha,0) )
-                {
-                    v = 0;
-                }
-                else
-                {
-                    v = ae_v_dotproduct(&a->ptr.pp_double[ia][ja+i], a->stride, &b->ptr.pp_double[ib+j][jb], 1, ae_v_len(ia,ia+k-1));
-                }
-                if( ae_fp_eq(beta,0) )
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = alpha*v;
-                }
-                else
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = beta*c->ptr.pp_double[ic+i][jc+j]+alpha*v;
-                }
-            }
-        }
-        return;
-    }
-    if( optypea!=0&&optypeb==0 )
-    {
-        
-        /*
-         * A'*B
-         */
-        if( ae_fp_eq(beta,0) )
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                for(j=0; j<=n-1; j++)
-                {
-                    c->ptr.pp_double[ic+i][jc+j] = 0;
-                }
-            }
-        }
-        else
-        {
-            for(i=0; i<=m-1; i++)
-            {
-                ae_v_muld(&c->ptr.pp_double[ic+i][jc], 1, ae_v_len(jc,jc+n-1), beta);
-            }
-        }
-        if( ae_fp_neq(alpha,0) )
-        {
-            for(j=0; j<=k-1; j++)
-            {
-                for(i=0; i<=m-1; i++)
-                {
-                    v = alpha*a->ptr.pp_double[ia+j][ja+i];
-                    ae_v_addd(&c->ptr.pp_double[ic+i][jc], 1, &b->ptr.pp_double[ib+j][jb], 1, ae_v_len(jc,jc+n-1), v);
-                }
             }
         }
         return;
@@ -12350,11 +11809,9 @@ void rmatrixlqbasecase(/* Real    */ ae_matrix* a,
 {
     ae_int_t i;
     ae_int_t k;
-    ae_int_t minmn;
     double tmp;
 
 
-    minmn = ae_minint(m, n, _state);
     k = ae_minint(m, n, _state);
     for(i=0; i<=k-1; i++)
     {
@@ -12446,7 +11903,6 @@ void rmatrixbd(/* Real    */ ae_matrix* a,
     ae_frame _frame_block;
     ae_vector work;
     ae_vector t;
-    ae_int_t minmn;
     ae_int_t maxmn;
     ae_int_t i;
     double ltau;
@@ -12466,7 +11922,6 @@ void rmatrixbd(/* Real    */ ae_matrix* a,
         ae_frame_leave(_state);
         return;
     }
-    minmn = ae_minint(m, n, _state);
     maxmn = ae_maxint(m, n, _state);
     ae_vector_set_length(&work, maxmn+1, _state);
     ae_vector_set_length(&t, maxmn+1, _state);
@@ -14516,7 +13971,6 @@ static ae_bool bdsvd_bidiagonalsvddecompositioninternal(/* Real    */ ae_vector*
     double smax;
     double smin;
     double sminl;
-    double sminlo;
     double sminoa;
     double sn;
     double thresh;
@@ -14534,7 +13988,6 @@ static ae_bool bdsvd_bidiagonalsvddecompositioninternal(/* Real    */ ae_vector*
     ae_vector vttemp;
     ae_vector ctemp;
     ae_vector etemp;
-    ae_bool rightside;
     ae_bool fwddir;
     double tmp;
     ae_int_t mm1;
@@ -14598,7 +14051,6 @@ static ae_bool bdsvd_bidiagonalsvddecompositioninternal(/* Real    */ ae_vector*
     ae_vector_set_length(&vttemp, vend+1, _state);
     ae_vector_set_length(&ctemp, cend+1, _state);
     maxitr = 12;
-    rightside = ae_true;
     fwddir = ae_true;
     
     /*
@@ -14912,7 +14364,6 @@ static ae_bool bdsvd_bidiagonalsvddecompositioninternal(/* Real    */ ae_vector*
                         iterflag = ae_true;
                         break;
                     }
-                    sminlo = sminl;
                     mu = ae_fabs(d->ptr.p_double[lll+1], _state)*(mu/(mu+ae_fabs(e->ptr.p_double[lll], _state)));
                     sminl = ae_minreal(sminl, mu, _state);
                 }
@@ -14952,7 +14403,6 @@ static ae_bool bdsvd_bidiagonalsvddecompositioninternal(/* Real    */ ae_vector*
                         iterflag = ae_true;
                         break;
                     }
-                    sminlo = sminl;
                     mu = ae_fabs(d->ptr.p_double[lll], _state)*(mu/(mu+ae_fabs(e->ptr.p_double[lll], _state)));
                     sminl = ae_minreal(sminl, mu, _state);
                 }
@@ -17518,7 +16968,6 @@ static ae_bool evd_tridiagonalevd(/* Real    */ ae_vector* d,
     ae_int_t lm1;
     ae_int_t lsv;
     ae_int_t m;
-    ae_int_t mm;
     ae_int_t mm1;
     ae_int_t nm1;
     ae_int_t nmaxit;
@@ -18054,7 +17503,6 @@ static ae_bool evd_tridiagonalevd(/* Real    */ ae_vector* d,
                      */
                     if( zneeded>0 )
                     {
-                        mm = l-m+1;
                         for(i=m; i<=l-1; i++)
                         {
                             workc.ptr.p_double[i-m+1] = work1.ptr.p_double[i];
@@ -19655,6 +19103,7 @@ static void evd_internaldstein(ae_int_t n,
                                 i2 = b1+blksiz-1;
                                 ztr = ae_v_dotproduct(&work1.ptr.p_double[1], 1, &z->ptr.pp_double[i1][i], z->stride, ae_v_len(1,blksiz));
                                 ae_v_subd(&work1.ptr.p_double[1], 1, &z->ptr.pp_double[i1][i], z->stride, ae_v_len(1,blksiz), ztr);
+                                touchint(&i2, _state);
                             }
                         }
                     }
@@ -20307,7 +19756,6 @@ static void evd_internaltrevc(/* Real    */ ae_matrix* t,
     double beta;
     double bignum;
     double emax;
-    double ovfl;
     double rec;
     double remax;
     double scl;
@@ -20481,7 +19929,6 @@ static void evd_internaltrevc(/* Real    */ ae_matrix* t,
      * Set the constants to control overflow.
      */
     unfl = ae_minrealnumber;
-    ovfl = 1/unfl;
     ulp = ae_machineepsilon;
     smlnum = unfl*(n/ulp);
     bignum = (1-ulp)/smlnum;
@@ -22235,12 +21682,16 @@ void rmatrixrndcond(ae_int_t n,
      /* Real    */ ae_matrix* a,
      ae_state *_state)
 {
+    ae_frame _frame_block;
     ae_int_t i;
     ae_int_t j;
     double l1;
     double l2;
+    hqrndstate rs;
 
+    ae_frame_make(_state, &_frame_block);
     ae_matrix_clear(a);
+    _hqrndstate_init(&rs, _state, ae_true);
 
     ae_assert(n>=1&&ae_fp_greater_eq(c,1), "RMatrixRndCond: N<1 or C<1!", _state);
     ae_matrix_set_length(a, n, n, _state);
@@ -22251,8 +21702,10 @@ void rmatrixrndcond(ae_int_t n,
          * special case
          */
         a->ptr.pp_double[0][0] = 2*ae_randominteger(2, _state)-1;
+        ae_frame_leave(_state);
         return;
     }
+    hqrndrandomize(&rs, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22265,11 +21718,12 @@ void rmatrixrndcond(ae_int_t n,
     a->ptr.pp_double[0][0] = ae_exp(l1, _state);
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_double[i][i] = ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state);
+        a->ptr.pp_double[i][i] = ae_exp(hqrnduniformr(&rs, _state)*(l2-l1)+l1, _state);
     }
     a->ptr.pp_double[n-1][n-1] = ae_exp(l2, _state);
     rmatrixrndorthogonalfromtheleft(a, n, n, _state);
     rmatrixrndorthogonalfromtheright(a, n, n, _state);
+    ae_frame_leave(_state);
 }
 
 
@@ -22361,6 +21815,7 @@ void cmatrixrndcond(ae_int_t n,
         ae_frame_leave(_state);
         return;
     }
+    hqrndrandomize(&state, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22373,7 +21828,7 @@ void cmatrixrndcond(ae_int_t n,
     a->ptr.pp_complex[0][0] = ae_complex_from_d(ae_exp(l1, _state));
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_complex[i][i] = ae_complex_from_d(ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state));
+        a->ptr.pp_complex[i][i] = ae_complex_from_d(ae_exp(hqrnduniformr(&state, _state)*(l2-l1)+l1, _state));
     }
     a->ptr.pp_complex[n-1][n-1] = ae_complex_from_d(ae_exp(l2, _state));
     cmatrixrndorthogonalfromtheleft(a, n, n, _state);
@@ -22402,12 +21857,16 @@ void smatrixrndcond(ae_int_t n,
      /* Real    */ ae_matrix* a,
      ae_state *_state)
 {
+    ae_frame _frame_block;
     ae_int_t i;
     ae_int_t j;
     double l1;
     double l2;
+    hqrndstate rs;
 
+    ae_frame_make(_state, &_frame_block);
     ae_matrix_clear(a);
+    _hqrndstate_init(&rs, _state, ae_true);
 
     ae_assert(n>=1&&ae_fp_greater_eq(c,1), "SMatrixRndCond: N<1 or C<1!", _state);
     ae_matrix_set_length(a, n, n, _state);
@@ -22418,12 +21877,14 @@ void smatrixrndcond(ae_int_t n,
          * special case
          */
         a->ptr.pp_double[0][0] = 2*ae_randominteger(2, _state)-1;
+        ae_frame_leave(_state);
         return;
     }
     
     /*
      * Prepare matrix
      */
+    hqrndrandomize(&rs, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22436,7 +21897,7 @@ void smatrixrndcond(ae_int_t n,
     a->ptr.pp_double[0][0] = ae_exp(l1, _state);
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_double[i][i] = (2*ae_randominteger(2, _state)-1)*ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state);
+        a->ptr.pp_double[i][i] = (2*hqrnduniformi(&rs, 2, _state)-1)*ae_exp(hqrnduniformr(&rs, _state)*(l2-l1)+l1, _state);
     }
     a->ptr.pp_double[n-1][n-1] = ae_exp(l2, _state);
     
@@ -22444,6 +21905,7 @@ void smatrixrndcond(ae_int_t n,
      * Multiply
      */
     smatrixrndmultiply(a, n, _state);
+    ae_frame_leave(_state);
 }
 
 
@@ -22467,12 +21929,16 @@ void spdmatrixrndcond(ae_int_t n,
      /* Real    */ ae_matrix* a,
      ae_state *_state)
 {
+    ae_frame _frame_block;
     ae_int_t i;
     ae_int_t j;
     double l1;
     double l2;
+    hqrndstate rs;
 
+    ae_frame_make(_state, &_frame_block);
     ae_matrix_clear(a);
+    _hqrndstate_init(&rs, _state, ae_true);
 
     
     /*
@@ -22480,18 +21946,21 @@ void spdmatrixrndcond(ae_int_t n,
      */
     if( n<=0||ae_fp_less(c,1) )
     {
+        ae_frame_leave(_state);
         return;
     }
     ae_matrix_set_length(a, n, n, _state);
     if( n==1 )
     {
         a->ptr.pp_double[0][0] = 1;
+        ae_frame_leave(_state);
         return;
     }
     
     /*
      * Prepare matrix
      */
+    hqrndrandomize(&rs, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22504,7 +21973,7 @@ void spdmatrixrndcond(ae_int_t n,
     a->ptr.pp_double[0][0] = ae_exp(l1, _state);
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_double[i][i] = ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state);
+        a->ptr.pp_double[i][i] = ae_exp(hqrnduniformr(&rs, _state)*(l2-l1)+l1, _state);
     }
     a->ptr.pp_double[n-1][n-1] = ae_exp(l2, _state);
     
@@ -22512,6 +21981,7 @@ void spdmatrixrndcond(ae_int_t n,
      * Multiply
      */
     smatrixrndmultiply(a, n, _state);
+    ae_frame_leave(_state);
 }
 
 
@@ -22535,12 +22005,16 @@ void hmatrixrndcond(ae_int_t n,
      /* Complex */ ae_matrix* a,
      ae_state *_state)
 {
+    ae_frame _frame_block;
     ae_int_t i;
     ae_int_t j;
     double l1;
     double l2;
+    hqrndstate rs;
 
+    ae_frame_make(_state, &_frame_block);
     ae_matrix_clear(a);
+    _hqrndstate_init(&rs, _state, ae_true);
 
     ae_assert(n>=1&&ae_fp_greater_eq(c,1), "HMatrixRndCond: N<1 or C<1!", _state);
     ae_matrix_set_length(a, n, n, _state);
@@ -22551,12 +22025,14 @@ void hmatrixrndcond(ae_int_t n,
          * special case
          */
         a->ptr.pp_complex[0][0] = ae_complex_from_d(2*ae_randominteger(2, _state)-1);
+        ae_frame_leave(_state);
         return;
     }
     
     /*
      * Prepare matrix
      */
+    hqrndrandomize(&rs, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22569,7 +22045,7 @@ void hmatrixrndcond(ae_int_t n,
     a->ptr.pp_complex[0][0] = ae_complex_from_d(ae_exp(l1, _state));
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_complex[i][i] = ae_complex_from_d((2*ae_randominteger(2, _state)-1)*ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state));
+        a->ptr.pp_complex[i][i] = ae_complex_from_d((2*hqrnduniformi(&rs, 2, _state)-1)*ae_exp(hqrnduniformr(&rs, _state)*(l2-l1)+l1, _state));
     }
     a->ptr.pp_complex[n-1][n-1] = ae_complex_from_d(ae_exp(l2, _state));
     
@@ -22585,6 +22061,7 @@ void hmatrixrndcond(ae_int_t n,
     {
         a->ptr.pp_complex[i][i].y = 0;
     }
+    ae_frame_leave(_state);
 }
 
 
@@ -22608,12 +22085,16 @@ void hpdmatrixrndcond(ae_int_t n,
      /* Complex */ ae_matrix* a,
      ae_state *_state)
 {
+    ae_frame _frame_block;
     ae_int_t i;
     ae_int_t j;
     double l1;
     double l2;
+    hqrndstate rs;
 
+    ae_frame_make(_state, &_frame_block);
     ae_matrix_clear(a);
+    _hqrndstate_init(&rs, _state, ae_true);
 
     
     /*
@@ -22621,18 +22102,21 @@ void hpdmatrixrndcond(ae_int_t n,
      */
     if( n<=0||ae_fp_less(c,1) )
     {
+        ae_frame_leave(_state);
         return;
     }
     ae_matrix_set_length(a, n, n, _state);
     if( n==1 )
     {
         a->ptr.pp_complex[0][0] = ae_complex_from_d(1);
+        ae_frame_leave(_state);
         return;
     }
     
     /*
      * Prepare matrix
      */
+    hqrndrandomize(&rs, _state);
     l1 = 0;
     l2 = ae_log(1/c, _state);
     for(i=0; i<=n-1; i++)
@@ -22645,7 +22129,7 @@ void hpdmatrixrndcond(ae_int_t n,
     a->ptr.pp_complex[0][0] = ae_complex_from_d(ae_exp(l1, _state));
     for(i=1; i<=n-2; i++)
     {
-        a->ptr.pp_complex[i][i] = ae_complex_from_d(ae_exp(ae_randomreal(_state)*(l2-l1)+l1, _state));
+        a->ptr.pp_complex[i][i] = ae_complex_from_d(ae_exp(hqrnduniformr(&rs, _state)*(l2-l1)+l1, _state));
     }
     a->ptr.pp_complex[n-1][n-1] = ae_complex_from_d(ae_exp(l2, _state));
     
@@ -22661,6 +22145,7 @@ void hpdmatrixrndcond(ae_int_t n,
     {
         a->ptr.pp_complex[i][i].y = 0;
     }
+    ae_frame_leave(_state);
 }
 
 
@@ -22758,7 +22243,7 @@ void rmatrixrndorthogonalfromtheright(/* Real    */ ae_matrix* a,
      */
     for(i=0; i<=n-1; i++)
     {
-        tau = 2*ae_randominteger(2, _state)-1;
+        tau = 2*hqrnduniformi(&state, 2, _state)-1;
         ae_v_muld(&a->ptr.pp_double[0][i], a->stride, ae_v_len(0,m-1), tau);
     }
     ae_frame_leave(_state);
@@ -22860,7 +22345,7 @@ void rmatrixrndorthogonalfromtheleft(/* Real    */ ae_matrix* a,
      */
     for(i=0; i<=m-1; i++)
     {
-        tau = 2*ae_randominteger(2, _state)-1;
+        tau = 2*hqrnduniformi(&state, 2, _state)-1;
         ae_v_muld(&a->ptr.pp_double[i][0], 1, ae_v_len(0,n-1), tau);
     }
     ae_frame_leave(_state);
@@ -23137,7 +22622,7 @@ void smatrixrndmultiply(/* Real    */ ae_matrix* a,
      */
     for(i=0; i<=n-1; i++)
     {
-        tau = 2*ae_randominteger(2, _state)-1;
+        tau = 2*hqrnduniformi(&state, 2, _state)-1;
         ae_v_muld(&a->ptr.pp_double[0][i], a->stride, ae_v_len(0,n-1), tau);
         ae_v_muld(&a->ptr.pp_double[i][0], 1, ae_v_len(0,n-1), tau);
     }
@@ -25799,9 +25284,6 @@ static void rcond_rmatrixrcondtrinternal(/* Real    */ ae_matrix* a,
     double ainvnm;
     double maxgrowth;
     double s;
-    ae_bool mupper;
-    ae_bool mtrans;
-    ae_bool munit;
 
     ae_frame_make(_state, &_frame_block);
     *rc = 0;
@@ -25827,9 +25309,6 @@ static void rcond_rmatrixrcondtrinternal(/* Real    */ ae_matrix* a,
     {
         kase1 = 2;
     }
-    mupper = ae_true;
-    mtrans = ae_true;
-    munit = ae_true;
     ae_vector_set_length(&iwork, n+1, _state);
     ae_vector_set_length(&tmp, n, _state);
     
@@ -26680,7 +26159,6 @@ static void rcond_rmatrixrcondluinternal(/* Real    */ ae_matrix* lua,
     double su;
     double sl;
     ae_bool mupper;
-    ae_bool mtrans;
     ae_bool munit;
 
     ae_frame_make(_state, &_frame_block);
@@ -26708,7 +26186,6 @@ static void rcond_rmatrixrcondluinternal(/* Real    */ ae_matrix* lua,
         kase1 = 2;
     }
     mupper = ae_true;
-    mtrans = ae_true;
     munit = ae_true;
     ae_vector_set_length(&iwork, n+1, _state);
     ae_vector_set_length(&tmp, n, _state);

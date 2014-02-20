@@ -40,7 +40,7 @@ General prototypes and definitions.
 
 const int entropy_add = 8;
 const double E_c = 0.005; // The largest competing energy difference that we still want to accept with P = 1 - min_acc
-const double ELP = 1.0; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values)  
+const double ELP = 1.5; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values)  
 
 /** 
 Helper functions and types
@@ -133,8 +133,8 @@ class sann
 		 * @param n_c Number of candidates to be generated in each annealing step
 		 * @param n_bins Number of bins for the ELP histograms
 		 */
-		sann(std::vector<alglib::decisionforest> dfs, std::vector<std::string> seqs, int iter_max=500, int max_link=8, 
-				int n_c=100, int n_bins=64, int n_best=8);
+		sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, 
+				int iter_max=500, int max_link=8, int n_c=100, int n_bins=64, int n_best=8);
 		
 		/**
 		 * Destructor.

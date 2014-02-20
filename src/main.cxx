@@ -44,7 +44,7 @@ To run an optimization joining the sequences found in *sequence_file* with a max
 @endcode 
 */
 
-const int NTREE = 64;
+const int NTREE = 50;
 const int CV = 0; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
 const int BEST_FILE = 0; // Save best linkers to a file?
 const int E_LOG = 0; // Save an energy value log?
@@ -88,6 +88,8 @@ int main (int argc, char* argv[])
 		mod_path += "/model_";
 		mod_path += argv[i];
 		mod_path += ".txt";
+		df_serialized="";
+		
 		in_mod_file.open(mod_path);
 		if(in_mod_file.is_open())
 		{
@@ -104,6 +106,7 @@ int main (int argc, char* argv[])
 			}
 			
 			in_mod_file.close();
+			df = alglib::decisionforest();
 			dfunserialize(df_serialized, df);
 			dfs.push_back(df);
 		}
@@ -135,6 +138,7 @@ int main (int argc, char* argv[])
 			sd_err = rf.sd_error();
 			
 			// Build complete forest and check for success
+			df = alglib::decisionforest();
 			dfbuildrandomdecisionforest( data, data.rows(), n_var, 2, NTREE, R, info, df, rep);
 			dfs.push_back(df);
 			
@@ -172,7 +176,7 @@ int main (int argc, char* argv[])
 	start = omp_get_wtime();
 
 	vector<string> seqs = read_seq(seq_path);
-	sann opt(dfs, seqs, n_iter, n_linker, 100, 32);
+	sann opt(dfs, seqs, n_iter, n_linker, 100, NTREE);
 	cout<<"Initial solution:"<<endl<<opt<<endl;
 	
 	

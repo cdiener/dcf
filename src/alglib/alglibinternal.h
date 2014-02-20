@@ -73,6 +73,25 @@ typedef struct
 } scomplexarray;
 typedef struct
 {
+    ae_int_t chunksize;
+    ae_int_t ntotal;
+    ae_int_t nin;
+    ae_int_t nout;
+    ae_int_t wcount;
+    ae_vector batch4buf;
+    ae_vector hpcbuf;
+    ae_matrix xy;
+    ae_matrix xy2;
+    ae_vector xyrow;
+    ae_vector x;
+    ae_vector y;
+    ae_vector desiredy;
+    double e;
+    ae_vector g;
+    ae_vector tmp0;
+} mlpbuffers;
+typedef struct
+{
     ae_bool brackt;
     ae_bool stage1;
     ae_int_t infoc;
@@ -117,11 +136,12 @@ typedef struct
 } armijostate;
 typedef struct
 {
-    ae_vector plan;
-    ae_vector precomputed;
-    ae_vector tmpbuf;
-    ae_vector stackbuf;
-} ftplan;
+    ae_matrix entries;
+    ae_vector buffer;
+    ae_vector precr;
+    ae_vector preci;
+    ae_shared_pool bluesteinpool;
+} fasttransformplan;
 
 }
 
@@ -143,11 +163,17 @@ namespace alglib
 /////////////////////////////////////////////////////////////////////////
 namespace alglib_impl
 {
-ae_int_t getrdfserializationcode(ae_state *_state);
-ae_int_t getkdtreeserializationcode(ae_state *_state);
-ae_int_t getmlpserializationcode(ae_state *_state);
-ae_int_t getmlpeserializationcode(ae_state *_state);
-ae_int_t getrbfserializationcode(ae_state *_state);
+ae_bool seterrorflag(ae_bool* flag, ae_bool cond, ae_state *_state);
+ae_bool seterrorflagdiff(ae_bool* flag,
+     double val,
+     double refval,
+     double tol,
+     double s,
+     ae_state *_state);
+void touchint(ae_int_t* a, ae_state *_state);
+void touchreal(double* a, ae_state *_state);
+double inttoreal(ae_int_t a, ae_state *_state);
+double logbase2(double x, ae_state *_state);
 ae_bool approxequalrel(double a, double b, double tol, ae_state *_state);
 void taskgenint1d(double a,
      double b,
@@ -194,6 +220,10 @@ void rmatrixresize(/* Real    */ ae_matrix* x,
      ae_int_t m,
      ae_int_t n,
      ae_state *_state);
+void imatrixresize(/* Integer */ ae_matrix* x,
+     ae_int_t m,
+     ae_int_t n,
+     ae_state *_state);
 ae_bool isfinitevector(/* Real    */ ae_vector* x,
      ae_int_t n,
      ae_state *_state);
@@ -230,6 +260,10 @@ void apperiodicmap(double* x,
      double* k,
      ae_state *_state);
 double randomnormal(ae_state *_state);
+void randomunit(ae_int_t n, /* Real    */ ae_vector* x, ae_state *_state);
+void inc(ae_int_t* v, ae_state *_state);
+void dec(ae_int_t* v, ae_state *_state);
+void countdown(ae_int_t* v, ae_state *_state);
 double boundval(double x, double b1, double b2, ae_state *_state);
 void alloccomplex(ae_serializer* s, ae_complex v, ae_state *_state);
 void serializecomplex(ae_serializer* s, ae_complex v, ae_state *_state);
@@ -285,6 +319,15 @@ ae_int_t recsearch(/* Integer */ ae_vector* a,
      ae_int_t i1,
      /* Integer */ ae_vector* b,
      ae_state *_state);
+void splitlengtheven(ae_int_t tasksize,
+     ae_int_t* task0,
+     ae_int_t* task1,
+     ae_state *_state);
+void splitlength(ae_int_t tasksize,
+     ae_int_t chunksize,
+     ae_int_t* task0,
+     ae_int_t* task1,
+     ae_state *_state);
 ae_bool _apbuffers_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _apbuffers_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _apbuffers_clear(void* _p);
@@ -321,6 +364,11 @@ ae_bool _scomplexarray_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _scomplexarray_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _scomplexarray_clear(void* _p);
 void _scomplexarray_destroy(void* _p);
+ae_int_t getrdfserializationcode(ae_state *_state);
+ae_int_t getkdtreeserializationcode(ae_state *_state);
+ae_int_t getmlpserializationcode(ae_state *_state);
+ae_int_t getmlpeserializationcode(ae_state *_state);
+ae_int_t getrbfserializationcode(ae_state *_state);
 void tagsort(/* Real    */ ae_vector* a,
      ae_int_t n,
      /* Integer */ ae_vector* p1,
@@ -379,6 +427,7 @@ ae_int_t upperbound(/* Real    */ ae_vector* a,
      ae_state *_state);
 void rankx(/* Real    */ ae_vector* x,
      ae_int_t n,
+     ae_bool iscentered,
      apbuffers* buf,
      ae_state *_state);
 ae_bool cmatrixrank1f(ae_int_t m,
@@ -528,6 +577,130 @@ ae_bool cmatrixgemmf(ae_int_t m,
      ae_int_t optypeb,
      ae_complex beta,
      /* Complex */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void cmatrixgemmk(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     ae_complex alpha,
+     /* Complex */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     ae_int_t optypea,
+     /* Complex */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     ae_int_t optypeb,
+     ae_complex beta,
+     /* Complex */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void rmatrixgemmk(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     ae_int_t optypea,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     ae_int_t optypeb,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void rmatrixgemmk44v00(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void rmatrixgemmk44v01(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void rmatrixgemmk44v10(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+void rmatrixgemmk44v11(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_state *_state);
+ae_bool rmatrixsyrkmkl(ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     ae_int_t optypea,
+     double beta,
+     /* Real    */ ae_matrix* c,
+     ae_int_t ic,
+     ae_int_t jc,
+     ae_bool isupper,
+     ae_state *_state);
+ae_bool rmatrixgemmmkl(ae_int_t m,
+     ae_int_t n,
+     ae_int_t k,
+     double alpha,
+     /* Real    */ ae_matrix* a,
+     ae_int_t ia,
+     ae_int_t ja,
+     ae_int_t optypea,
+     /* Real    */ ae_matrix* b,
+     ae_int_t ib,
+     ae_int_t jb,
+     ae_int_t optypeb,
+     double beta,
+     /* Real    */ ae_matrix* c,
      ae_int_t ic,
      ae_int_t jc,
      ae_state *_state);
@@ -775,6 +948,42 @@ ae_bool cmatrixscaledtrsafesolve(/* Complex */ ae_matrix* a,
      ae_bool isunit,
      double maxgrowth,
      ae_state *_state);
+void hpcpreparechunkedgradient(/* Real    */ ae_vector* weights,
+     ae_int_t wcount,
+     ae_int_t ntotal,
+     ae_int_t nin,
+     ae_int_t nout,
+     mlpbuffers* buf,
+     ae_state *_state);
+void hpcfinalizechunkedgradient(mlpbuffers* buf,
+     /* Real    */ ae_vector* grad,
+     ae_state *_state);
+ae_bool hpcchunkedgradient(/* Real    */ ae_vector* weights,
+     /* Integer */ ae_vector* structinfo,
+     /* Real    */ ae_vector* columnmeans,
+     /* Real    */ ae_vector* columnsigmas,
+     /* Real    */ ae_matrix* xy,
+     ae_int_t cstart,
+     ae_int_t csize,
+     /* Real    */ ae_vector* batch4buf,
+     /* Real    */ ae_vector* hpcbuf,
+     double* e,
+     ae_bool naturalerrorfunc,
+     ae_state *_state);
+ae_bool hpcchunkedprocess(/* Real    */ ae_vector* weights,
+     /* Integer */ ae_vector* structinfo,
+     /* Real    */ ae_vector* columnmeans,
+     /* Real    */ ae_vector* columnsigmas,
+     /* Real    */ ae_matrix* xy,
+     ae_int_t cstart,
+     ae_int_t csize,
+     /* Real    */ ae_vector* batch4buf,
+     /* Real    */ ae_vector* hpcbuf,
+     ae_state *_state);
+ae_bool _mlpbuffers_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _mlpbuffers_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _mlpbuffers_clear(void* _p);
+void _mlpbuffers_destroy(void* _p);
 void xdot(/* Real    */ ae_vector* a,
      /* Real    */ ae_vector* b,
      ae_int_t n,
@@ -830,21 +1039,18 @@ ae_bool _armijostate_init(void* _p, ae_state *_state, ae_bool make_automatic);
 ae_bool _armijostate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
 void _armijostate_clear(void* _p);
 void _armijostate_destroy(void* _p);
-void ftbasegeneratecomplexfftplan(ae_int_t n,
-     ftplan* plan,
+void findprimitiverootandinverse(ae_int_t n,
+     ae_int_t* proot,
+     ae_int_t* invproot,
      ae_state *_state);
-void ftbasegeneraterealfftplan(ae_int_t n, ftplan* plan, ae_state *_state);
-void ftbasegeneraterealfhtplan(ae_int_t n, ftplan* plan, ae_state *_state);
-void ftbaseexecuteplan(/* Real    */ ae_vector* a,
-     ae_int_t aoffset,
-     ae_int_t n,
-     ftplan* plan,
+void ftcomplexfftplan(ae_int_t n,
+     ae_int_t k,
+     fasttransformplan* plan,
      ae_state *_state);
-void ftbaseexecuteplanrec(/* Real    */ ae_vector* a,
-     ae_int_t aoffset,
-     ftplan* plan,
-     ae_int_t entryoffset,
-     ae_int_t stackptr,
+void ftapplyplan(fasttransformplan* plan,
+     /* Real    */ ae_vector* a,
+     ae_int_t offsa,
+     ae_int_t repcnt,
      ae_state *_state);
 void ftbasefactorize(ae_int_t n,
      ae_int_t tasktype,
@@ -855,10 +1061,10 @@ ae_bool ftbaseissmooth(ae_int_t n, ae_state *_state);
 ae_int_t ftbasefindsmooth(ae_int_t n, ae_state *_state);
 ae_int_t ftbasefindsmootheven(ae_int_t n, ae_state *_state);
 double ftbasegetflopestimate(ae_int_t n, ae_state *_state);
-ae_bool _ftplan_init(void* _p, ae_state *_state, ae_bool make_automatic);
-ae_bool _ftplan_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
-void _ftplan_clear(void* _p);
-void _ftplan_destroy(void* _p);
+ae_bool _fasttransformplan_init(void* _p, ae_state *_state, ae_bool make_automatic);
+ae_bool _fasttransformplan_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic);
+void _fasttransformplan_clear(void* _p);
+void _fasttransformplan_destroy(void* _p);
 double nulog1p(double x, ae_state *_state);
 double nuexpm1(double x, ae_state *_state);
 double nucosm1(double x, ae_state *_state);

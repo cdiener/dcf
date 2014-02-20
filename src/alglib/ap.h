@@ -26,7 +26,10 @@ http://www.fsf.org/licensing/licenses
 #include <cstring>
 #include <math.h>
 
-#ifdef __BORLANDC__
+#if defined(__CODEGEARC__)
+#include <list>
+#include <vector>
+#elif defined(__BORLANDC__)
 #include <list.h>
 #include <vector.h>
 #else
@@ -35,25 +38,7 @@ http://www.fsf.org/licensing/licenses
 #endif
 
 #define AE_USE_CPP
-
-/////////////////////////////////////////////////////////////////////////
-//
-// THIS SECTION CONTAINS DECLARATIONS FOR BASIC FUNCTIONALITY 
-// LIKE MEMORY MANAGEMENT FOR VECTORS/MATRICES WHICH IS SHARED 
-// BETWEEN C++ AND PURE C LIBRARIES
-//
-/////////////////////////////////////////////////////////////////////////
-namespace alglib_impl
-{
-#include <stdlib.h>
-#include <string.h>
-#include <setjmp.h>
-#include <math.h>
-#include <stddef.h>
-
-/*
- * definitions
- */
+/* Definitions */
 #define AE_UNKNOWN 0
 #define AE_MSVC 1
 #define AE_GNUC 2
@@ -62,19 +47,14 @@ namespace alglib_impl
 #define AE_SPARC 2
 #define AE_WINDOWS 1
 #define AE_POSIX 2
-
 #define AE_LOCK_ALIGNMENT 16
- 
-/*
- * in case no OS is defined, use AE_UNKNOWN
- */
+
+/* in case no OS is defined, use AE_UNKNOWN */
 #ifndef AE_OS
 #define AE_OS AE_UNKNOWN
 #endif
 
-/*
- * automatically determine compiler
- */
+/* automatically determine compiler */
 #define AE_COMPILER AE_UNKNOWN
 #ifdef __GNUC__
 #undef AE_COMPILER
@@ -87,11 +67,77 @@ namespace alglib_impl
 #ifdef _MSC_VER
 #undef AE_COMPILER
 #define AE_COMPILER AE_MSVC
-#endif 
+#endif
+
+/* compiler-specific definitions */
+#if AE_COMPILER==AE_MSVC
+#define ALIGNED __declspec(align(8))
+#elif AE_COMPILER==AE_GNUC
+#define ALIGNED __attribute__((aligned(8)))
+#else
+#define ALIGNED
+#endif
+
+/* now we are ready to include headers */
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <setjmp.h>
+#include <math.h>
+#include <stddef.h>
+
+#if defined(AE_HAVE_STDINT)
+#include <stdint.h>
+#endif
 
 /*
- * if we work under C++ environment, define several conditions
+ * SSE2 intrinsics
+ *
+ * Preprocessor directives below:
+ * - include headers for SSE2 intrinsics
+ * - define AE_HAS_SSE2_INTRINSICS definition
+ *
+ * These actions are performed when we have:
+ * - x86 architecture definition (AE_CPU==AE_INTEL)
+ * - compiler which supports intrinsics
+ *
+ * Presence of AE_HAS_SSE2_INTRINSICS does NOT mean that our CPU
+ * actually supports SSE2 - such things should be determined at runtime
+ * with ae_cpuid() call. It means that we are working under Intel and
+ * out compiler can issue SSE2-capable code.
+ *
  */
+#if defined(AE_CPU)
+#if AE_CPU==AE_INTEL
+#if AE_COMPILER==AE_MSVC
+#include <emmintrin.h>
+#define AE_HAS_SSE2_INTRINSICS
+#endif
+#if AE_COMPILER==AE_GNUC
+#include <xmmintrin.h>
+#define AE_HAS_SSE2_INTRINSICS
+#endif
+#if AE_COMPILER==AE_SUNC
+#include <xmmintrin.h>
+#include <emmintrin.h>
+#define AE_HAS_SSE2_INTRINSICS
+#endif
+#endif
+#endif
+
+
+
+/////////////////////////////////////////////////////////////////////////
+//
+// THIS SECTION CONTAINS DECLARATIONS FOR BASIC FUNCTIONALITY 
+// LIKE MEMORY MANAGEMENT FOR VECTORS/MATRICES WHICH IS SHARED 
+// BETWEEN C++ AND PURE C LIBRARIES
+//
+/////////////////////////////////////////////////////////////////////////
+namespace alglib_impl
+{
+
+/* if we work under C++ environment, define several conditions */
 #ifdef AE_USE_CPP
 #define AE_USE_CPP_BOOL
 #define AE_USE_CPP_ERROR_HANDLING
@@ -99,24 +145,8 @@ namespace alglib_impl
 #endif
 
 /*
- * Include SMP headers
- */
-#if AE_OS==AE_WINDOWS
-#include <windows.h>
-#include <process.h>
-#elif AE_OS==AE_POSIX
-#include <time.h>
-#include <unistd.h>
-#include <pthread.h>
-#endif
-
-
-/*
  * define ae_int32_t, ae_int64_t, ae_int_t, ae_bool, ae_complex, ae_error_type and ae_datatype
  */
-#if defined(AE_HAVE_STDINT)
-#include <stdint.h>
-#endif
 
 #if defined(AE_INT32_T)
 typedef AE_INT32_T ae_int32_t;
@@ -162,55 +192,6 @@ typedef ptrdiff_t ae_int_t;
 #define ae_false false
 #endif
 
-
-/*
- * SSE2 intrinsics
- *
- * Preprocessor directives below:
- * - include headers for SSE2 intrinsics
- * - define AE_HAS_SSE2_INTRINSICS definition
- *
- * These actions are performed when we have:
- * - x86 architecture definition (AE_CPU==AE_INTEL)
- * - compiler which supports intrinsics
- *
- * Presence of AE_HAS_SSE2_INTRINSICS does NOT mean that our CPU
- * actually supports SSE2 - such things should be determined at runtime
- * with ae_cpuid() call. It means that we are working under Intel and
- * out compiler can issue SSE2-capable code.
- *
- */
-#if defined(AE_CPU)
-#if AE_CPU==AE_INTEL
-
-#ifdef AE_USE_CPP
-} // end of namespace declaration, subsequent includes must be out of namespace
-#endif
-
-#if AE_COMPILER==AE_MSVC
-#include <emmintrin.h>
-#define AE_HAS_SSE2_INTRINSICS
-#endif
-
-#if AE_COMPILER==AE_GNUC
-#include <xmmintrin.h>
-#define AE_HAS_SSE2_INTRINSICS
-#endif
-
-#if AE_COMPILER==AE_SUNC
-#include <xmmintrin.h>
-#include <emmintrin.h>
-#define AE_HAS_SSE2_INTRINSICS
-#endif
-
-#ifdef AE_USE_CPP
-namespace alglib_impl { // namespace declaration continued
-#endif
-
-#endif
-#endif
-
-
 typedef struct { double x, y; } ae_complex;
 
 typedef enum
@@ -231,7 +212,6 @@ enum { ACT_UNCHANGED=1, ACT_SAME_LOCATION=2, ACT_NEW_LOCATION=3 };
 enum { DT_BOOL=1, DT_INT=2, DT_REAL=3, DT_COMPLEX=4 };
 enum { CPU_SSE2=1 };
 
-
 /************************************************************************
 x-string (zero-terminated):
     owner       OWN_CALLER or OWN_AE. Determines what to do on realloc().
@@ -250,9 +230,9 @@ Members of this structure are ae_int64_t to avoid alignment problems.
 ************************************************************************/
 typedef struct
 {
-    ae_int64_t     owner;
-    ae_int64_t     last_action;
-    char *ptr;
+    ALIGNED ae_int64_t     owner;
+    ALIGNED ae_int64_t     last_action;
+    ALIGNED char *ptr;
 } x_string;
 
 /************************************************************************
@@ -280,11 +260,11 @@ Members of this structure are ae_int64_t to avoid alignment problems.
 ************************************************************************/
 typedef struct
 {
-    ae_int64_t     cnt;
-    ae_int64_t     datatype;
-    ae_int64_t     owner;
-    ae_int64_t     last_action;
-    void *ptr;
+    ALIGNED ae_int64_t     cnt;
+    ALIGNED ae_int64_t     datatype;
+    ALIGNED ae_int64_t     owner;
+    ALIGNED ae_int64_t     last_action;
+    ALIGNED void *ptr;
 } x_vector;
 
 
@@ -317,13 +297,13 @@ Members of this structure are ae_int64_t to avoid alignment problems.
 ************************************************************************/
 typedef struct
 {
-    ae_int64_t     rows;
-    ae_int64_t     cols;
-    ae_int64_t     stride;
-    ae_int64_t     datatype;
-    ae_int64_t     owner;
-    ae_int64_t     last_action;
-    void *ptr;
+    ALIGNED ae_int64_t     rows;
+    ALIGNED ae_int64_t     cols;
+    ALIGNED ae_int64_t     stride;
+    ALIGNED ae_int64_t     datatype;
+    ALIGNED ae_int64_t     owner;
+    ALIGNED ae_int64_t     last_action;
+    ALIGNED void *ptr;
 } x_matrix;
 
 
@@ -484,6 +464,10 @@ typedef struct ae_smart_ptr
     /* whether smart pointer owns ptr */
     ae_bool is_owner;
     
+    /* whether object pointed by ptr is dynamic - clearing such object requires BOTH
+       calling destructor function AND calling ae_free for memory occupied by object. */
+    ae_bool is_dynamic;
+    
     /* destructor function for pointer; clears all dynamically allocated memory */
     void (*destroy)(void*);
     
@@ -507,14 +491,11 @@ This structure provides OS-independent non-reentrant lock:
 *************************************************************************/
 typedef struct
 {
-#if AE_OS==AE_WINDOWS
-    volatile ae_int_t * volatile p_lock;
-    char buf[sizeof(ae_int_t)+AE_LOCK_ALIGNMENT];
-#elif AE_OS==AE_POSIX
-    pthread_mutex_t mutex;
-#else
-    ae_bool is_locked;
-#endif
+    /*
+     * Pointer to _lock structure. This pointer has type void* in order to
+     * make header file OS-independent (lock declaration depends on OS).
+     */
+    void *ptr;
 } ae_lock;
 
 
@@ -609,6 +590,7 @@ void ae_swap_vectors(ae_vector *vec1, ae_vector *vec2);
 ae_bool ae_matrix_init(ae_matrix *dst, ae_int_t rows, ae_int_t cols, ae_datatype datatype, ae_state *state, ae_bool make_automatic);
 ae_bool ae_matrix_init_copy(ae_matrix *dst, ae_matrix *src, ae_state *state, ae_bool make_automatic);
 void ae_matrix_init_from_x(ae_matrix *dst, x_matrix *src, ae_state *state, ae_bool make_automatic);
+void ae_matrix_attach_to_x(ae_matrix *dst, x_matrix *src, ae_state *state, ae_bool make_automatic);
 ae_bool ae_matrix_set_length(ae_matrix *dst, ae_int_t rows, ae_int_t cols, ae_state *state);
 void ae_matrix_clear(ae_matrix *dst);
 void ae_matrix_destroy(ae_matrix *dst);
@@ -617,9 +599,10 @@ void ae_swap_matrices(ae_matrix *mat1, ae_matrix *mat2);
 ae_bool ae_smart_ptr_init(ae_smart_ptr *dst, void **subscriber, ae_state *state, ae_bool make_automatic);
 void ae_smart_ptr_clear(void *_dst); /* accepts ae_smart_ptr* */
 void ae_smart_ptr_destroy(void *_dst);
-void ae_smart_ptr_assign(ae_smart_ptr *dst, void *new_ptr, ae_bool is_owner, void (*destroy)(void*));
+void ae_smart_ptr_assign(ae_smart_ptr *dst, void *new_ptr, ae_bool is_owner, ae_bool is_dynamic, void (*destroy)(void*));
 void ae_smart_ptr_release(ae_smart_ptr *dst);
 
+void ae_yield();
 void ae_init_lock(ae_lock *lock);
 void ae_acquire_lock(ae_lock *lock);
 void ae_release_lock(ae_lock *lock);
@@ -629,6 +612,7 @@ ae_bool ae_shared_pool_init(void *_dst, ae_state *state, ae_bool make_automatic)
 ae_bool ae_shared_pool_init_copy(void *_dst, void *_src, ae_state *state, ae_bool make_automatic);
 void ae_shared_pool_clear(void *dst);
 void ae_shared_pool_destroy(void *dst);
+ae_bool ae_shared_pool_is_initialized(void *_dst);
 void ae_shared_pool_set_seed(
     ae_shared_pool  *dst,
     void            *seed_object,
@@ -854,9 +838,12 @@ ae_bool _rcommstate_init_copy(rcommstate* dst, rcommstate* src, ae_state *_state
 void _rcommstate_clear(rcommstate* p);
 void _rcommstate_destroy(rcommstate* p);
 
-#ifdef AE_USE_ALLOC_COUNTER
+/************************************************************************
+Allocation counter, inactive by default.
+Turned on when needed for debugging purposes.
+************************************************************************/
 extern ae_int64_t _alloc_counter;
-#endif
+extern ae_bool    _use_alloc_counter;
 
 
 /************************************************************************
@@ -868,20 +855,14 @@ debug functions (must be turned on by preprocessor definitions):
 * ae_get_seed(), returns two seed values of the debug RNG (NON-THREAD-SAFE!!!)
 ************************************************************************/
 #ifdef AE_DEBUG4WINDOWS
-#include <windows.h>
-#include <stdio.h>
-#define tickcount(s) GetTickCount()
 #define flushconsole(s) fflush(stdout)
+#define tickcount(s) _tickcount()
+int _tickcount();
 #endif
 #ifdef AE_DEBUG4POSIX
-#define tickcount(s) PosixGetTickCount()
 #define flushconsole(s) fflush(stdout)
-int PosixGetTickCount();
-#endif
-#ifdef AE_DEBUGRNG
-ae_int_t ae_debugrng();
-void ae_set_seed(ae_int_t s0, ae_int_t s1);
-void ae_get_seed(ae_int_t *s0, ae_int_t *s1);
+#define tickcount(s) _tickcount()
+int _tickcount();
 #endif
 
 
@@ -972,6 +953,7 @@ const alglib::complex operator/(const alglib::complex& lhs, const double& rhs);
 double abscomplex(const alglib::complex &z);
 alglib::complex conj(const alglib::complex &z);
 alglib::complex csqr(const alglib::complex &z);
+void setnworkers(alglib::ae_int_t nworkers);
 
 /********************************************************************
 Level 1 BLAS functions
@@ -1066,8 +1048,6 @@ class ae_vector_wrapper
 public:
     ae_vector_wrapper();
     virtual ~ae_vector_wrapper();
-    ae_vector_wrapper(const ae_vector_wrapper &rhs);
-    const ae_vector_wrapper& operator=(const ae_vector_wrapper &rhs);
 
     void setlength(ae_int_t iLen);
     ae_int_t length() const;
@@ -1076,7 +1056,42 @@ public:
     void allocate_own(ae_int_t size, alglib_impl::ae_datatype datatype);
     const alglib_impl::ae_vector* c_ptr() const;
     alglib_impl::ae_vector* c_ptr();
+private:
+    ae_vector_wrapper(const ae_vector_wrapper &rhs);
+    const ae_vector_wrapper& operator=(const ae_vector_wrapper &rhs);
 protected:
+    //
+    // Copies source vector RHS into current object.
+    //
+    // Current object is considered empty (this function should be
+    // called from copy constructor).
+    //
+    void create(const ae_vector_wrapper &rhs);
+    
+    //
+    // Copies array given by string into current object. Additional
+    // parameter DATATYPE contains information about type of the data
+    // in S and type of the array to create.
+    //
+    // Current object is considered empty (this function should be
+    // called from copy constructor).
+    //
+    void create(const char *s, alglib_impl::ae_datatype datatype);
+    
+    //
+    // Assigns RHS to current object.
+    //
+    // It has several branches depending on target object status:
+    // * in case it is proxy object, data are copied into memory pointed by
+    //   proxy. Function checks that source has exactly same size as target
+    //   (exception is thrown on failure).
+    // * in case it is non-proxy object, data allocated by object are cleared
+    //   and a copy of RHS is created in target.
+    //
+    // NOTE: this function correctly handles assignments of the object to itself.
+    //
+    void assign(const ae_vector_wrapper &rhs);
+    
     alglib_impl::ae_vector *p_vec;
     alglib_impl::ae_vector vec;
 };
@@ -1086,7 +1101,9 @@ class boolean_1d_array : public ae_vector_wrapper
 public:
     boolean_1d_array();
     boolean_1d_array(const char *s);
+    boolean_1d_array(const boolean_1d_array &rhs);
     boolean_1d_array(alglib_impl::ae_vector *p);
+    const boolean_1d_array& operator=(const boolean_1d_array &rhs);
     virtual ~boolean_1d_array() ;
 
     const ae_bool& operator()(ae_int_t i) const;
@@ -1106,8 +1123,10 @@ class integer_1d_array : public ae_vector_wrapper
 {
 public:
     integer_1d_array();
-    integer_1d_array(alglib_impl::ae_vector *p);
     integer_1d_array(const char *s);
+    integer_1d_array(const integer_1d_array &rhs);
+    integer_1d_array(alglib_impl::ae_vector *p);
+    const integer_1d_array& operator=(const integer_1d_array &rhs);
     virtual ~integer_1d_array();
 
     const ae_int_t& operator()(ae_int_t i) const;
@@ -1128,8 +1147,10 @@ class real_1d_array : public ae_vector_wrapper
 {
 public:
     real_1d_array();
-    real_1d_array(alglib_impl::ae_vector *p);
     real_1d_array(const char *s);
+    real_1d_array(const real_1d_array &rhs);
+    real_1d_array(alglib_impl::ae_vector *p);
+    const real_1d_array& operator=(const real_1d_array &rhs);
     virtual ~real_1d_array();
 
     const double& operator()(ae_int_t i) const;
@@ -1149,8 +1170,10 @@ class complex_1d_array : public ae_vector_wrapper
 {
 public:
     complex_1d_array();
-    complex_1d_array(alglib_impl::ae_vector *p);
     complex_1d_array(const char *s);
+    complex_1d_array(const complex_1d_array &rhs);
+    complex_1d_array(alglib_impl::ae_vector *p);
+    const complex_1d_array& operator=(const complex_1d_array &rhs);
     virtual ~complex_1d_array();
 
     const alglib::complex& operator()(ae_int_t i) const;
@@ -1171,7 +1194,6 @@ class ae_matrix_wrapper
 public:
     ae_matrix_wrapper();
     virtual ~ae_matrix_wrapper();
-    ae_matrix_wrapper(const ae_matrix_wrapper &rhs);
     const ae_matrix_wrapper& operator=(const ae_matrix_wrapper &rhs);
 
     void setlength(ae_int_t rows, ae_int_t cols);
@@ -1184,7 +1206,41 @@ public:
     void allocate_own(ae_int_t rows, ae_int_t cols, alglib_impl::ae_datatype datatype);
     const alglib_impl::ae_matrix* c_ptr() const;
     alglib_impl::ae_matrix* c_ptr();
+private:
+    ae_matrix_wrapper(const ae_matrix_wrapper &rhs);
 protected:
+    //
+    // Copies source matrix RHS into current object.
+    //
+    // Current object is considered empty (this function should be
+    // called from copy constructor).
+    //
+    void create(const ae_matrix_wrapper &rhs);
+    
+    //
+    // Copies array given by string into current object. Additional
+    // parameter DATATYPE contains information about type of the data
+    // in S and type of the array to create.
+    //
+    // Current object is considered empty (this function should be
+    // called from copy constructor).
+    //
+    void create(const char *s, alglib_impl::ae_datatype datatype);
+    
+    //
+    // Assigns RHS to current object.
+    //
+    // It has several branches depending on target object status:
+    // * in case it is proxy object, data are copied into memory pointed by
+    //   proxy. Function checks that source has exactly same size as target
+    //   (exception is thrown on failure).
+    // * in case it is non-proxy object, data allocated by object are cleared
+    //   and a copy of RHS is created in target.
+    //
+    // NOTE: this function correctly handles assignments of the object to itself.
+    //
+    void assign(const ae_matrix_wrapper &rhs);
+    
     alglib_impl::ae_matrix *p_mat;
     alglib_impl::ae_matrix mat;
 };
@@ -1193,6 +1249,7 @@ class boolean_2d_array : public ae_matrix_wrapper
 {
 public:
     boolean_2d_array();
+    boolean_2d_array(const boolean_2d_array &rhs);
     boolean_2d_array(alglib_impl::ae_matrix *p);
     boolean_2d_array(const char *s);
     virtual ~boolean_2d_array();
@@ -1212,6 +1269,7 @@ class integer_2d_array : public ae_matrix_wrapper
 {
 public:
     integer_2d_array();
+    integer_2d_array(const integer_2d_array &rhs);
     integer_2d_array(alglib_impl::ae_matrix *p);
     integer_2d_array(const char *s);
     virtual ~integer_2d_array();
@@ -1231,6 +1289,7 @@ class real_2d_array : public ae_matrix_wrapper
 {
 public:
     real_2d_array();
+    real_2d_array(const real_2d_array &rhs);
     real_2d_array(alglib_impl::ae_matrix *p);
     real_2d_array(const char *s);
     virtual ~real_2d_array();
@@ -1250,6 +1309,7 @@ class complex_2d_array : public ae_matrix_wrapper
 {
 public:
     complex_2d_array();
+    complex_2d_array(const complex_2d_array &rhs);
     complex_2d_array(alglib_impl::ae_matrix *p);
     complex_2d_array(const char *s);
     virtual ~complex_2d_array();
@@ -1264,6 +1324,7 @@ public:
 
     std::string tostring(int dps) const;
 };
+
 
 
 /********************************************************************
@@ -1352,10 +1413,10 @@ bool fp_isfinite(double x);
 // IT IS SHARED BETWEEN C++ AND PURE C LIBRARIES
 //
 /////////////////////////////////////////////////////////////////////////
+
 namespace alglib_impl
 {
 #define ALGLIB_INTERCEPTS_ABLAS
-
 void _ialglib_vzero(ae_int_t n, double *p, ae_int_t stride);
 void _ialglib_vzero_complex(ae_int_t n, ae_complex *p, ae_int_t stride);
 void _ialglib_vcopy(ae_int_t n, const double *a, ae_int_t stridea, double *b, ae_int_t strideb);
@@ -1484,6 +1545,20 @@ ae_bool _ialglib_i_rmatrixrank1f(ae_int_t m,
      ae_int_t uoffs,
      ae_vector *v,
      ae_int_t voffs);
+
+
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////
+//
+// THIS SECTION CONTAINS PARALLEL SUBROUTINES
+//
+/////////////////////////////////////////////////////////////////////////
+
+namespace alglib_impl
+{
 
 }
 

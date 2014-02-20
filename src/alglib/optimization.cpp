@@ -1622,13 +1622,17 @@ INPUT PARAMETERS:
                 the condition |v|<=EpsX is fulfilled, where:
                 * |.| means Euclidian norm
                 * v - scaled step vector, v[i]=dx[i]/s[i]
-                * dx - ste pvector, dx=X(k+1)-X(k)
+                * dx - step vector, dx=X(k+1)-X(k)
                 * s - scaling coefficients set by MinBLEICSetScale()
     MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
                 iterations is unlimited.
 
 Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
 to automatic stopping criterion selection.
+
+NOTE: when SetCond() called with non-zero MaxIts, BLEIC solver may perform
+      slightly more than MaxIts iterations. I.e., MaxIts  sets  non-strict
+      limit on iterations count.
 
   -- ALGLIB --
      Copyright 28.11.2010 by Bochkanov Sergey
@@ -1971,8 +1975,8 @@ OUTPUT PARAMETERS:
                        either nonexistent or too hard to find. Try to
                        restart optimizer with better initial approximation
                 *  1   relative function improvement is no more than EpsF.
-                *  2   relative step is no more than EpsX.
-                *  4   gradient norm is no more than EpsG
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
                 *  5   MaxIts steps was taken
                 More information about fields of this  structure  can  be
                 found in the comments on MinBLEICReport datatype.
@@ -3166,6 +3170,10 @@ Completion codes:
 * -5    inappropriate solver was used:
         * Cholesky solver for semidefinite or indefinite problems
         * Cholesky solver for problems with non-boundary constraints
+* -4    BLEIC-QP algorithm found unconstrained direction
+        of negative curvature (function is unbounded from
+        below  even  under  constraints),  no  meaningful
+        minimum can be found.
 * -3    inconsistent constraints (or, maybe, feasible point is
         too hard to find). If you are sure that constraints are feasible,
         try to restart optimizer with better initial approximation.
@@ -3302,11 +3310,17 @@ void minqpsetlinearterm(const minqpstate &state, const real_1d_array &b)
 }
 
 /*************************************************************************
-This function sets quadratic term for QP solver.
+This  function  sets  dense  quadratic  term  for  QP solver. By  default,
+quadratic term is zero.
 
-By default quadratic term is zero.
+SUPPORT BY ALGLIB QP ALGORITHMS:
 
-IMPORTANT: this solver minimizes following  function:
+Dense quadratic term can be handled by any of the QP algorithms  supported
+by ALGLIB QP Solver.
+
+IMPORTANT:
+
+This solver minimizes following  function:
     f(x) = 0.5*x'*A*x + b'*x.
 Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
     f(x) = x^2 + x
@@ -3345,11 +3359,17 @@ void minqpsetquadraticterm(const minqpstate &state, const real_2d_array &a, cons
 }
 
 /*************************************************************************
-This function sets quadratic term for QP solver.
+This  function  sets  dense  quadratic  term  for  QP solver. By  default,
+quadratic term is zero.
 
-By default quadratic term is zero.
+SUPPORT BY ALGLIB QP ALGORITHMS:
 
-IMPORTANT: this solver minimizes following  function:
+Dense quadratic term can be handled by any of the QP algorithms  supported
+by ALGLIB QP Solver.
+
+IMPORTANT:
+
+This solver minimizes following  function:
     f(x) = 0.5*x'*A*x + b'*x.
 Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
     f(x) = x^2 + x
@@ -3383,6 +3403,60 @@ void minqpsetquadraticterm(const minqpstate &state, const real_2d_array &a)
     {
         alglib_impl::minqpsetquadraticterm(const_cast<alglib_impl::minqpstate*>(state.c_ptr()), const_cast<alglib_impl::ae_matrix*>(a.c_ptr()), isupper, &_alglib_env_state);
 
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This  function  sets  sparse  quadratic  term  for  QP solver. By default,
+quadratic term is zero.
+
+SUPPORT BY ALGLIB QP ALGORITHMS:
+
+Sparse quadratic term is supported only by BLEIC-based QP  algorithm  (one
+which is activated by MinQPSetAlgoBLEIC function). Cholesky-based QP  algo
+won't be able to deal  with  sparse  quadratic  term  and  will  terminate
+abnormally.
+
+IF YOU CALLED THIS FUNCTION, YOU MUST SWITCH TO BLEIC-BASED  QP  ALGORITHM
+BEFORE CALLING MINQPOPTIMIZE() FUNCTION.
+
+IMPORTANT:
+
+This solver minimizes following  function:
+    f(x) = 0.5*x'*A*x + b'*x.
+Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
+    f(x) = x^2 + x
+you should rewrite your problem as follows:
+    f(x) = 0.5*(2*x^2) + x
+and your matrix A will be equal to [[2.0]], not to [[1.0]]
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    A       -   matrix, array[N,N]
+    IsUpper -   (optional) storage type:
+                * if True, symmetric matrix  A  is  given  by  its  upper
+                  triangle, and the lower triangle isn’t used
+                * if False, symmetric matrix  A  is  given  by  its lower
+                  triangle, and the upper triangle isn’t used
+                * if not given, both lower and upper  triangles  must  be
+                  filled.
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetquadratictermsparse(const minqpstate &state, const sparsematrix &a, const bool isupper)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::minqpsetquadratictermsparse(const_cast<alglib_impl::minqpstate*>(state.c_ptr()), const_cast<alglib_impl::sparsematrix*>(a.c_ptr()), isupper, &_alglib_env_state);
         alglib_impl::ae_state_clear(&_alglib_env_state);
         return;
     }
@@ -3454,15 +3528,75 @@ void minqpsetorigin(const minqpstate &state, const real_1d_array &xorigin)
 }
 
 /*************************************************************************
-This function tells solver to use Cholesky-based algorithm.
+This function sets scaling coefficients.
 
-Cholesky-based algorithm can be used when:
-* problem is convex
-* there is no constraints or only boundary constraints are present
+ALGLIB optimizers use scaling matrices to test stopping  conditions  (step
+size and gradient are scaled before comparison with tolerances).  Scale of
+the I-th variable is a translation invariant measure of:
+a) "how large" the variable is
+b) how large the step should be to make significant changes in the function
 
-This algorithm has O(N^3) complexity for unconstrained problem and  is  up
-to several times slower on bound constrained  problems  (these  additional
-iterations are needed to identify active constraints).
+BLEIC-based QP solver uses scale for two purposes:
+* to evaluate stopping conditions
+* for preconditioning of the underlying BLEIC solver
+
+INPUT PARAMETERS:
+    State   -   structure stores algorithm state
+    S       -   array[N], non-zero scaling coefficients
+                S[i] may be negative, sign doesn't matter.
+
+  -- ALGLIB --
+     Copyright 14.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetscale(const minqpstate &state, const real_1d_array &s)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::minqpsetscale(const_cast<alglib_impl::minqpstate*>(state.c_ptr()), const_cast<alglib_impl::ae_vector*>(s.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This function tells solver to use Cholesky-based algorithm. This algorithm
+is active by default.
+
+DESCRIPTION:
+
+Cholesky-based algorithm can be used only for problems which:
+* have dense quadratic term, set  by  MinQPSetQuadraticTerm(),  sparse  or
+  structured problems are not supported.
+* are strictly convex, i.e. quadratic term is symmetric positive definite,
+  indefinite or semidefinite problems are not supported by this algorithm.
+
+If anything of what listed above is violated, you may use  BLEIC-based  QP
+algorithm which can be activated by MinQPSetAlgoBLEIC().
+
+BENEFITS AND DRAWBACKS:
+
+This  algorithm  gives  best  precision amongst all QP solvers provided by
+ALGLIB (Newton iterations  have  much  higher  precision  than  any  other
+optimization algorithm). This solver also gracefully handles problems with
+very large amount of constraints.
+
+Performance of the algorithm is good because internally  it  uses  Level 3
+Dense BLAS for its performance-critical parts.
+
+
+From the other side, algorithm has  O(N^3)  complexity  for  unconstrained
+problems and up to orders of  magnitude  slower  on  constrained  problems
+(these additional iterations are needed to identify  active  constraints).
+So, its running time depends on number of constraints active  at solution.
+
+Furthermore, this algorithm can not solve problems with sparse matrices or
+problems with semidefinite/indefinite matrices of any kind (dense/sparse).
 
 INPUT PARAMETERS:
     State   -   structure which stores algorithm state
@@ -3477,6 +3611,95 @@ void minqpsetalgocholesky(const minqpstate &state)
     try
     {
         alglib_impl::minqpsetalgocholesky(const_cast<alglib_impl::minqpstate*>(state.c_ptr()), &_alglib_env_state);
+        alglib_impl::ae_state_clear(&_alglib_env_state);
+        return;
+    }
+    catch(alglib_impl::ae_error_type)
+    {
+        throw ap_error(_alglib_env_state.error_msg);
+    }
+}
+
+/*************************************************************************
+This function tells solver to use BLEIC-based algorithm and sets  stopping
+criteria for the algorithm.
+
+DESCRIPTION:
+
+BLEIC-based QP algorithm can be used for any kind of QP problems:
+* problems with both dense and sparse quadratic terms
+* problems with positive definite, semidefinite, indefinite terms
+
+BLEIC-based algorithm can solve even indefinite problems - as long as they
+are bounded from below on the feasible set. Of course, global  minimum  is
+found only  for  positive  definite  and  semidefinite  problems.  As  for
+indefinite ones - only local minimum is found.
+
+BENEFITS AND DRAWBACKS:
+
+This algorithm can be used to solve both convex and indefinite QP problems
+and it can utilize sparsity of the quadratic  term  (algorithm  calculates
+matrix-vector products, which can be  performed  efficiently  in  case  of
+sparse matrix).
+
+Algorithm has iteration cost, which (assuming fixed amount of non-boundary
+linear constraints) linearly depends on problem size. Boundary constraints
+does not significantly change iteration cost.
+
+Thus, it outperforms Cholesky-based QP algorithm (CQP) on high-dimensional
+sparse problems with moderate amount of constraints.
+
+
+From the other side, unlike CQP solver, this algorithm does NOT  make  use
+of Level 3 Dense BLAS. Thus, its performance on dense problems is inferior
+to that of CQP solver.
+
+Its precision is also inferior to that of CQP. CQP performs  Newton  steps
+which are know to achieve very good  precision. In many cases Newton  step
+leads us exactly to the solution. BLEIC-QP performs LBFGS steps, which are
+good at detecting neighborhood of the solution, buy need  many  iterations
+to find solution with 6 digits of precision.
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    EpsG    -   >=0
+                The  subroutine  finishes  its  work   if   the  condition
+                |v|<EpsG is satisfied, where:
+                * |.| means Euclidian norm
+                * v - scaled constrained gradient vector, v[i]=g[i]*s[i]
+                * g - gradient
+                * s - scaling coefficients set by MinQPSetScale()
+    EpsF    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:  |F(k+1)-F(k)|<=EpsF*max{|F(k)|,|F(k+1)|,1}
+    EpsX    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:
+                * |.| means Euclidian norm
+                * v - scaled step vector, v[i]=dx[i]/s[i]
+                * dx - step vector, dx=X(k+1)-X(k)
+                * s - scaling coefficients set by MinQPSetScale()
+    MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
+                iterations is unlimited.
+
+Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
+to automatic stopping criterion selection (presently it is  small    step
+length, but it may change in the future versions of ALGLIB).
+
+IT IS VERY IMPORTANT THAT YOU CALL MinQPSetScale() WHEN YOU USE THIS ALGO!
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetalgobleic(const minqpstate &state, const double epsg, const double epsf, const double epsx, const ae_int_t maxits)
+{
+    alglib_impl::ae_state _alglib_env_state;
+    alglib_impl::ae_state_init(&_alglib_env_state);
+    try
+    {
+        alglib_impl::minqpsetalgobleic(const_cast<alglib_impl::minqpstate*>(state.c_ptr()), epsg, epsf, epsx, maxits, &_alglib_env_state);
         alglib_impl::ae_state_clear(&_alglib_env_state);
         return;
     }
@@ -3657,11 +3880,35 @@ INPUT PARAMETERS:
     State   -   algorithm state
 
 OUTPUT PARAMETERS:
-    X       -   array[0..N-1], solution
+    X       -   array[0..N-1], solution.
+                This array is allocated and initialized only when
+                Rep.TerminationType parameter is positive (success).
     Rep     -   optimization report. You should check Rep.TerminationType,
                 which contains completion code, and you may check  another
                 fields which contain another information  about  algorithm
                 functioning.
+
+                Failure codes returned by algorithm are:
+                * -5    inappropriate solver was used:
+                        * Cholesky solver for (semi)indefinite problems
+                        * Cholesky solver for problems with sparse matrix
+                * -4    BLEIC-QP algorithm found unconstrained direction
+                        of negative curvature (function is unbounded from
+                        below  even  under  constraints),  no  meaningful
+                        minimum can be found.
+                * -3    inconsistent constraints (or maybe  feasible point
+                        is too  hard  to  find).  If  you  are  sure  that
+                        constraints are feasible, try to restart optimizer
+                        with better initial approximation.
+
+                Completion codes specific for Cholesky algorithm:
+                *  4   successful completion
+
+                Completion codes specific for BLEIC-based algorithm:
+                *  1   relative function improvement is no more than EpsF.
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
+                *  5   MaxIts steps was taken
 
   -- ALGLIB --
      Copyright 11.01.2011 by Bochkanov Sergey
@@ -5715,10 +5962,11 @@ static void mincg_mincginitinternal(ae_int_t n,
 
 
 static double minbleic_gtol = 0.4;
-static double minbleic_maxnonmonotoniclen = 1.0E6;
+static double minbleic_maxnonmonotoniclen = 1.0E-5;
 static double minbleic_initialdecay = 0.5;
-static double minbleic_mindecay = 0.01;
+static double minbleic_mindecay = 0.1;
 static double minbleic_decaycorrection = 0.8;
+static double minbleic_penaltyfactor = 100;
 static void minbleic_clearrequestfields(minbleicstate* state,
      ae_state *_state);
 static void minbleic_minbleicinitinternal(ae_int_t n,
@@ -5738,6 +5986,7 @@ static void minlbfgs_clearrequestfields(minlbfgsstate* state,
 
 static ae_int_t minqp_maxlagrangeits = 10;
 static ae_int_t minqp_maxbadnewtonits = 7;
+static double minqp_penaltyfactor = 100.0;
 static ae_int_t minqp_minqpboundedstepandactivation(minqpstate* state,
      /* Real    */ ae_vector* xn,
      /* Real    */ ae_vector* buf,
@@ -5796,8 +6045,6 @@ static double mincomp_asad1norm(minasastate* state, ae_state *_state);
 static ae_bool mincomp_asauisempty(minasastate* state, ae_state *_state);
 static void mincomp_clearrequestfields(minasastate* state,
      ae_state *_state);
-
-
 
 
 
@@ -6513,7 +6760,6 @@ ae_bool findfeasiblepoint(/* Real    */ ae_vector* x,
     ae_int_t itswithintolerance;
     ae_int_t maxitswithintolerance;
     ae_int_t gparuns;
-    ae_int_t maxgparuns;
     ae_int_t maxarmijoruns;
     ae_bool result;
 
@@ -6541,7 +6787,6 @@ ae_bool findfeasiblepoint(/* Real    */ ae_vector* x,
     ae_matrix_init(&vt, 0, 0, DT_REAL, _state, ae_true);
 
     maxitswithintolerance = 3;
-    maxgparuns = 3;
     maxarmijoruns = 5;
     *qpits = 0;
     *gpaits = 0;
@@ -9529,6 +9774,7 @@ void snnlssolve(snnlssolver* s,
                 break;
             }
             s->debugflops = s->debugflops+2*nr*nd;
+            touchreal(&d0, _state);
             
             /*
              * Perform full (unconstrained) step with length StpLen in direction D.
@@ -9862,6 +10108,7 @@ void snnlssolve(snnlssolver* s,
             /*
              * Step to candidate point.
              * If no constraints was added, accept candidate point XN and move to next phase.
+             * Terminate, if number of Newton iterations exceeded DebugMaxNewton counter.
              */
             terminationneeded = s->debugmaxnewton>0&&newtoncnt>=s->debugmaxnewton;
             if( !snnls_boundedstepandactivation(x, &s->xn, &s->nnc, ns+nd, _state) )
@@ -10984,9 +11231,6 @@ INPUT PARAMETERS:
                 assigned to XC[CIdx] during activation. CVal is ignored in
                 other cases.
                 This value is calculated by SASExploreDirection().
-    
-OUTPUT PARAMETERS:
-    S       -   current point and list of active constraints are changed.
 
   -- ALGLIB --
      Copyright 21.12.2012 by Bochkanov Sergey
@@ -11154,13 +11398,13 @@ This  subroutine  performs  correction of some (possibly infeasible) point
 with respect to a) current active set, b) all boundary  constraints,  both
 active and inactive:
 
+0) we calculate L1 penalty term for violation of active linear constraints
+   (one which is returned by SASActiveLCPenalty1() function).
 1) first, it performs projection (orthogonal with respect to scale  matrix
    S) of X into current active set: X -> X1.
-   P1 is set to scaled norm of X-X1.
 2) next, we perform projection with respect to  ALL  boundary  constraints
    which are violated at X1: X1 -> X2.
-   P2 is set to scaled norm of X2-X1.
-3) X is replaced by X2, P1+P2 are returned in "Penalty" parameter.
+3) X is replaced by X2.
 
 The idea is that this function can preserve and enforce feasibility during
 optimization, and additional penalty parameter can be used to prevent algo
@@ -11198,8 +11442,6 @@ void sascorrection(sactiveset* state,
     ae_int_t j;
     ae_int_t n;
     double v;
-    double p1;
-    double p2;
 
     *penalty = 0;
 
@@ -11207,6 +11449,11 @@ void sascorrection(sactiveset* state,
     sasrebuildbasis(state, _state);
     n = state->n;
     rvectorsetlengthatleast(&state->corrtmp, n, _state);
+    
+    /*
+     * Calculate penalty term.
+     */
+    *penalty = sasactivelcpenalty1(state, x, _state);
     
     /*
      * Perform projection 1.
@@ -11251,16 +11498,10 @@ void sascorrection(sactiveset* state,
             state->corrtmp.ptr.p_double[i] = state->xc.ptr.p_double[i];
         }
     }
-    p1 = 0;
-    for(i=0; i<=n-1; i++)
-    {
-        p1 = p1+ae_sqr((state->corrtmp.ptr.p_double[i]-x->ptr.p_double[i])/state->s.ptr.p_double[i], _state);
-    }
     
     /*
      * Perform projection 2
      */
-    p2 = 0;
     for(i=0; i<=n-1; i++)
     {
         x->ptr.p_double[i] = state->corrtmp.ptr.p_double[i];
@@ -11272,9 +11513,80 @@ void sascorrection(sactiveset* state,
         {
             x->ptr.p_double[i] = state->bndu.ptr.p_double[i];
         }
-        p2 = p2+ae_sqr((state->corrtmp.ptr.p_double[i]-x->ptr.p_double[i])/state->s.ptr.p_double[i], _state);
     }
-    *penalty = p1+p2;
+}
+
+
+/*************************************************************************
+This  subroutine returns L1 penalty for violation of active general linear
+constraints (violation of boundary or inactive linear constraints  is  not
+added to penalty).
+
+Penalty term is equal to:
+    
+    Penalty = SUM( Abs((C_i*x-R_i)/Alpha_i) )
+    
+Here:
+* summation is performed for I=0...NEC+NIC-1, ActiveSet[N+I]>0
+  (only for rows of CLEIC which are in active set)
+* C_i is I-th row of CLEIC
+* R_i is corresponding right part
+* S is a scale matrix
+* Alpha_i = ||S*C_i|| - is a scaling coefficient which "normalizes"
+  I-th summation term according to its scale.
+
+INPUT PARAMETERS:
+    S       -   active set object
+    X       -   array[N], candidate point
+
+  -- ALGLIB --
+     Copyright 21.12.2012 by Bochkanov Sergey
+*************************************************************************/
+double sasactivelcpenalty1(sactiveset* state,
+     /* Real    */ ae_vector* x,
+     ae_state *_state)
+{
+    ae_int_t i;
+    ae_int_t j;
+    ae_int_t n;
+    ae_int_t nec;
+    ae_int_t nic;
+    double v;
+    double alpha;
+    double p;
+    double result;
+
+
+    ae_assert(state->algostate==1, "SASActiveLCPenalty1: is not in optimization mode", _state);
+    sasrebuildbasis(state, _state);
+    n = state->n;
+    nec = state->nec;
+    nic = state->nic;
+    
+    /*
+     * Calculate penalty term.
+     */
+    result = 0;
+    for(i=0; i<=nec+nic-1; i++)
+    {
+        if( state->activeset.ptr.p_int[n+i]>0 )
+        {
+            alpha = 0;
+            p = -state->cleic.ptr.pp_double[i][n];
+            for(j=0; j<=n-1; j++)
+            {
+                v = state->cleic.ptr.pp_double[i][j];
+                p = p+v*x->ptr.p_double[j];
+                alpha = alpha+ae_sqr(v*state->s.ptr.p_double[j], _state);
+            }
+            alpha = ae_sqrt(alpha, _state);
+            if( ae_fp_neq(alpha,0) )
+            {
+                result = result+ae_fabs(p/alpha, _state);
+            }
+        }
+    }
+    return result;
 }
 
 
@@ -11352,6 +11664,9 @@ INPUT PARAMETERS:
 OUTPUT PARAMETERS:
     S   -   state is changed
 
+NOTE: this function can be called many times for optimizer which was
+      already stopped.
+
   -- ALGLIB --
      Copyright 21.12.2012 by Bochkanov Sergey
 *************************************************************************/
@@ -11359,7 +11674,6 @@ void sasstopoptimization(sactiveset* state, ae_state *_state)
 {
 
 
-    ae_assert(state->algostate==1, "SASStopOptimization: already stopped", _state);
     state->algostate = 0;
 }
 
@@ -14757,13 +15071,17 @@ INPUT PARAMETERS:
                 the condition |v|<=EpsX is fulfilled, where:
                 * |.| means Euclidian norm
                 * v - scaled step vector, v[i]=dx[i]/s[i]
-                * dx - ste pvector, dx=X(k+1)-X(k)
+                * dx - step vector, dx=X(k+1)-X(k)
                 * s - scaling coefficients set by MinBLEICSetScale()
     MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
                 iterations is unlimited.
 
 Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
 to automatic stopping criterion selection.
+
+NOTE: when SetCond() called with non-zero MaxIts, BLEIC solver may perform
+      slightly more than MaxIts iterations. I.e., MaxIts  sets  non-strict
+      limit on iterations count.
 
   -- ALGLIB --
      Copyright 28.11.2010 by Bochkanov Sergey
@@ -14953,6 +15271,31 @@ void minbleicsetxrep(minbleicstate* state,
 
 
 /*************************************************************************
+This function turns on/off line search reports.
+These reports are described in more details in developer-only  comments on
+MinBLEICState object.
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    NeedDRep-   whether line search reports are needed or not
+
+This function is intended for private use only. Turning it on artificially
+may cause program failure.
+
+  -- ALGLIB --
+     Copyright 02.04.2010 by Bochkanov Sergey
+*************************************************************************/
+void minbleicsetdrep(minbleicstate* state,
+     ae_bool needdrep,
+     ae_state *_state)
+{
+
+
+    state->drep = needdrep;
+}
+
+
+/*************************************************************************
 This function sets maximum step length
 
 IMPORTANT: this feature is hard to combine with preconditioning. You can't
@@ -15036,8 +15379,8 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
     ae_int_t badbfgsits;
     ae_bool b;
     ae_int_t nextaction;
-    ae_int_t actstatus;
     ae_int_t mcinfo;
+    ae_int_t actstatus;
     ae_int_t ic;
     double penalty;
     double ginit;
@@ -15064,8 +15407,8 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
         j = state->rstate.ia.ptr.p_int[3];
         badbfgsits = state->rstate.ia.ptr.p_int[4];
         nextaction = state->rstate.ia.ptr.p_int[5];
-        actstatus = state->rstate.ia.ptr.p_int[6];
-        mcinfo = state->rstate.ia.ptr.p_int[7];
+        mcinfo = state->rstate.ia.ptr.p_int[6];
+        actstatus = state->rstate.ia.ptr.p_int[7];
         ic = state->rstate.ia.ptr.p_int[8];
         b = state->rstate.ba.ptr.p_bool[0];
         v = state->rstate.ra.ptr.p_double[0];
@@ -15082,8 +15425,8 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
         j = 900;
         badbfgsits = -287;
         nextaction = 364;
-        actstatus = 214;
-        mcinfo = -338;
+        mcinfo = 214;
+        actstatus = -338;
         ic = -686;
         b = ae_false;
         v = 585;
@@ -15252,6 +15595,14 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
     {
         goto lbl_39;
     }
+    if( state->rstate.stage==40 )
+    {
+        goto lbl_40;
+    }
+    if( state->rstate.stage==41 )
+    {
+        goto lbl_41;
+    }
     
     /*
      * Routine body
@@ -15265,7 +15616,7 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
      *              This coefficient is decreased after each L-BFGS round until
      *              it reaches minimum decay.
      */
-    m = 5;
+    m = ae_minint(5, state->nmain, _state);
     gdecay = minbleic_initialdecay;
     
     /*
@@ -15327,16 +15678,16 @@ ae_bool minbleiciteration(minbleicstate* state, ae_state *_state)
      */
     if( !(ae_fp_eq(state->diffstep,0)&&ae_fp_greater(state->teststep,0)) )
     {
-        goto lbl_40;
+        goto lbl_42;
     }
     minbleic_clearrequestfields(state, _state);
     ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     state->needfg = ae_true;
     i = 0;
-lbl_42:
+lbl_44:
     if( i>n-1 )
     {
-        goto lbl_44;
+        goto lbl_46;
     }
     ae_assert(!state->hasbndl.ptr.p_bool[i]||ae_fp_greater_eq(state->sas.xc.ptr.p_double[i],state->bndl.ptr.p_double[i]), "MinBLEICIteration: internal error(State.X is out of bounds)", _state);
     ae_assert(!state->hasbndu.ptr.p_bool[i]||ae_fp_less_eq(state->sas.xc.ptr.p_double[i],state->bndu.ptr.p_double[i]), "MinBLEICIteration: internal error(State.X is out of bounds)", _state);
@@ -15385,10 +15736,10 @@ lbl_2:
         return result;
     }
     i = i+1;
-    goto lbl_42;
-lbl_44:
+    goto lbl_44;
+lbl_46:
     state->needfg = ae_false;
-lbl_40:
+lbl_42:
     
     /*
      * Main cycle of BLEIC-PG algorithm
@@ -15397,32 +15748,33 @@ lbl_40:
     badbfgsits = 0;
     state->lastgoodstep = 0;
     state->lastscaledgoodstep = 0;
+    state->maxscaledgrad = 0;
     state->nonmonotoniccnt = n+state->nic;
     ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     minbleic_clearrequestfields(state, _state);
     if( ae_fp_neq(state->diffstep,0) )
     {
-        goto lbl_45;
+        goto lbl_47;
     }
     state->needfg = ae_true;
     state->rstate.stage = 3;
     goto lbl_rcomm;
 lbl_3:
     state->needfg = ae_false;
-    goto lbl_46;
-lbl_45:
+    goto lbl_48;
+lbl_47:
     state->needf = ae_true;
     state->rstate.stage = 4;
     goto lbl_rcomm;
 lbl_4:
     state->needf = ae_false;
-lbl_46:
+lbl_48:
     state->fc = state->f;
     trimprepare(state->f, &state->trimthreshold, _state);
     state->repnfev = state->repnfev+1;
     if( !state->xrep )
     {
-        goto lbl_47;
+        goto lbl_49;
     }
     
     /*
@@ -15435,11 +15787,11 @@ lbl_46:
     goto lbl_rcomm;
 lbl_5:
     state->xupdated = ae_false;
-lbl_47:
 lbl_49:
+lbl_51:
     if( ae_false )
     {
-        goto lbl_50;
+        goto lbl_52;
     }
     
     /*
@@ -15447,12 +15799,13 @@ lbl_49:
      *
      * (a) calculate unconstrained gradient
      * (b) determine active set
+     * (c) update MaxScaledGrad
      */
     ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     minbleic_clearrequestfields(state, _state);
     if( ae_fp_neq(state->diffstep,0) )
     {
-        goto lbl_51;
+        goto lbl_53;
     }
     
     /*
@@ -15463,8 +15816,8 @@ lbl_49:
     goto lbl_rcomm;
 lbl_6:
     state->needfg = ae_false;
-    goto lbl_52;
-lbl_51:
+    goto lbl_54;
+lbl_53:
     
     /*
      * Numerical differentiation
@@ -15475,10 +15828,10 @@ lbl_51:
 lbl_7:
     state->fbase = state->f;
     i = 0;
-lbl_53:
+lbl_55:
     if( i>n-1 )
     {
-        goto lbl_55;
+        goto lbl_57;
     }
     v = state->x.ptr.p_double[i];
     b = ae_false;
@@ -15492,7 +15845,7 @@ lbl_53:
     }
     if( b )
     {
-        goto lbl_56;
+        goto lbl_58;
     }
     state->x.ptr.p_double[i] = v-state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 8;
@@ -15515,8 +15868,8 @@ lbl_10:
 lbl_11:
     state->fp2 = state->f;
     state->g.ptr.p_double[i] = (8*(state->fp1-state->fm1)-(state->fp2-state->fm2))/(6*state->diffstep*state->s.ptr.p_double[i]);
-    goto lbl_57;
-lbl_56:
+    goto lbl_59;
+lbl_58:
     state->xm1 = v-state->diffstep*state->s.ptr.p_double[i];
     state->xp1 = v+state->diffstep*state->s.ptr.p_double[i];
     if( state->hasbndl.ptr.p_bool[i]&&ae_fp_less(state->xm1,state->bndl.ptr.p_double[i]) )
@@ -15545,17 +15898,23 @@ lbl_13:
     {
         state->g.ptr.p_double[i] = 0;
     }
-lbl_57:
+lbl_59:
     state->x.ptr.p_double[i] = v;
     i = i+1;
-    goto lbl_53;
-lbl_55:
+    goto lbl_55;
+lbl_57:
     state->f = state->fbase;
     state->needf = ae_false;
-lbl_52:
+lbl_54:
     state->fc = state->f;
     ae_v_move(&state->gc.ptr.p_double[0], 1, &state->g.ptr.p_double[0], 1, ae_v_len(0,n-1));
     sasreactivateconstraintsprec(&state->sas, &state->gc, _state);
+    v = 0.0;
+    for(i=0; i<=n-1; i++)
+    {
+        v = v+ae_sqr(state->gc.ptr.p_double[i]*state->s.ptr.p_double[i], _state);
+    }
+    state->maxscaledgrad = ae_maxreal(state->maxscaledgrad, ae_sqrt(v, _state), _state);
     
     /*
      * Phase 2: perform steepest descent step.
@@ -15566,10 +15925,10 @@ lbl_52:
      * * NextAction=0 in case we found solution (step size or function change are small enough)
      */
     nextaction = 0;
-lbl_58:
+lbl_60:
     if( ae_false )
     {
-        goto lbl_59;
+        goto lbl_61;
     }
     
     /*
@@ -15583,7 +15942,7 @@ lbl_58:
          */
         state->repterminationtype = 4;
         nextaction = 0;
-        goto lbl_59;
+        goto lbl_61;
     }
     
     /*
@@ -15617,12 +15976,38 @@ lbl_58:
     if( state->cidx>=0&&ae_fp_eq(state->activationstep,0) )
     {
         sasimmediateactivation(&state->sas, state->cidx, state->cval, _state);
-        goto lbl_58;
+        goto lbl_60;
     }
     if( ae_fp_greater(state->stpmax,0) )
     {
         state->curstpmax = ae_minreal(state->curstpmax, state->stpmax, _state);
     }
+    
+    /*
+     * Report beginning of line search (if requested by caller).
+     * See description of the MinBLEICState for more information
+     * about fields accessible to caller.
+     *
+     * Caller may do following:
+     * * change State.Stp and load better initial estimate of
+     *   the step length.
+     */
+    if( !state->drep )
+    {
+        goto lbl_62;
+    }
+    minbleic_clearrequestfields(state, _state);
+    state->lsstart = ae_true;
+    state->lbfgssearch = ae_false;
+    state->boundedstep = state->cidx>=0;
+    ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
+    ae_v_move(&state->g.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
+    state->f = state->fc;
+    state->rstate.stage = 14;
+    goto lbl_rcomm;
+lbl_14:
+    state->lsstart = ae_false;
+lbl_62:
     
     /*
      * Perform optimization of F along XC+alpha*D.
@@ -15632,10 +16017,10 @@ lbl_58:
     ae_v_move(&state->gn.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     state->fn = state->fc;
     mcsrch(n, &state->xn, &state->fn, &state->gn, &state->d, &state->stp, state->curstpmax, minbleic_gtol, &mcinfo, &state->nfev, &state->work, &state->lstate, &state->mcstage, _state);
-lbl_60:
+lbl_64:
     if( state->mcstage==0 )
     {
-        goto lbl_61;
+        goto lbl_65;
     }
     
     /*
@@ -15654,34 +16039,34 @@ lbl_60:
     minbleic_clearrequestfields(state, _state);
     if( ae_fp_neq(state->diffstep,0) )
     {
-        goto lbl_62;
+        goto lbl_66;
     }
     
     /*
      * Analytic gradient
      */
     state->needfg = ae_true;
-    state->rstate.stage = 14;
+    state->rstate.stage = 15;
     goto lbl_rcomm;
-lbl_14:
+lbl_15:
     state->needfg = ae_false;
     state->repnfev = state->repnfev+1;
-    goto lbl_63;
-lbl_62:
+    goto lbl_67;
+lbl_66:
     
     /*
      * Numerical differentiation
      */
     state->needf = ae_true;
-    state->rstate.stage = 15;
+    state->rstate.stage = 16;
     goto lbl_rcomm;
-lbl_15:
+lbl_16:
     state->fbase = state->f;
     i = 0;
-lbl_64:
+lbl_68:
     if( i>n-1 )
     {
-        goto lbl_66;
+        goto lbl_70;
     }
     v = state->x.ptr.p_double[i];
     b = ae_false;
@@ -15695,32 +16080,32 @@ lbl_64:
     }
     if( b )
     {
-        goto lbl_67;
+        goto lbl_71;
     }
     state->x.ptr.p_double[i] = v-state->diffstep*state->s.ptr.p_double[i];
-    state->rstate.stage = 16;
-    goto lbl_rcomm;
-lbl_16:
-    state->fm2 = state->f;
-    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 17;
     goto lbl_rcomm;
 lbl_17:
-    state->fm1 = state->f;
-    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
+    state->fm2 = state->f;
+    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 18;
     goto lbl_rcomm;
 lbl_18:
-    state->fp1 = state->f;
-    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->fm1 = state->f;
+    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 19;
     goto lbl_rcomm;
 lbl_19:
+    state->fp1 = state->f;
+    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->rstate.stage = 20;
+    goto lbl_rcomm;
+lbl_20:
     state->fp2 = state->f;
     state->g.ptr.p_double[i] = (8*(state->fp1-state->fm1)-(state->fp2-state->fm2))/(6*state->diffstep*state->s.ptr.p_double[i]);
     state->repnfev = state->repnfev+4;
-    goto lbl_68;
-lbl_67:
+    goto lbl_72;
+lbl_71:
     state->xm1 = v-state->diffstep*state->s.ptr.p_double[i];
     state->xp1 = v+state->diffstep*state->s.ptr.p_double[i];
     if( state->hasbndl.ptr.p_bool[i]&&ae_fp_less(state->xm1,state->bndl.ptr.p_double[i]) )
@@ -15732,14 +16117,14 @@ lbl_67:
         state->xp1 = state->bndu.ptr.p_double[i];
     }
     state->x.ptr.p_double[i] = state->xm1;
-    state->rstate.stage = 20;
-    goto lbl_rcomm;
-lbl_20:
-    state->fm1 = state->f;
-    state->x.ptr.p_double[i] = state->xp1;
     state->rstate.stage = 21;
     goto lbl_rcomm;
 lbl_21:
+    state->fm1 = state->f;
+    state->x.ptr.p_double[i] = state->xp1;
+    state->rstate.stage = 22;
+    goto lbl_rcomm;
+lbl_22:
     state->fp1 = state->f;
     if( ae_fp_neq(state->xm1,state->xp1) )
     {
@@ -15750,14 +16135,14 @@ lbl_21:
         state->g.ptr.p_double[i] = 0;
     }
     state->repnfev = state->repnfev+2;
-lbl_68:
+lbl_72:
     state->x.ptr.p_double[i] = v;
     i = i+1;
-    goto lbl_64;
-lbl_66:
+    goto lbl_68;
+lbl_70:
     state->f = state->fbase;
     state->needf = ae_false;
-lbl_63:
+lbl_67:
     
     /*
      * Back to MCSRCH
@@ -15765,12 +16150,12 @@ lbl_63:
      * NOTE: penalty term from correction is added to FN in order
      *       to penalize increase in infeasibility.
      */
-    state->fn = state->f+penalty;
+    state->fn = state->f+minbleic_penaltyfactor*state->maxscaledgrad*penalty;
     ae_v_move(&state->gn.ptr.p_double[0], 1, &state->g.ptr.p_double[0], 1, ae_v_len(0,n-1));
     trimfunction(&state->fn, &state->gn, n, state->trimthreshold, _state);
     mcsrch(n, &state->xn, &state->fn, &state->gn, &state->d, &state->stp, state->curstpmax, minbleic_gtol, &mcinfo, &state->nfev, &state->work, &state->lstate, &state->mcstage, _state);
-    goto lbl_60;
-lbl_61:
+    goto lbl_64;
+lbl_65:
     
     /*
      * Handle possible failure of the line search
@@ -15800,7 +16185,7 @@ lbl_61:
             v = v+ae_sqr(state->d.ptr.p_double[i]*state->curstpmax/state->s.ptr.p_double[i], _state);
         }
         v = ae_sqrt(v, _state);
-        if( (state->cidx>=0&&ae_fp_less_eq(v,minbleic_maxnonmonotoniclen*ae_machineepsilon))&&state->nonmonotoniccnt>0 )
+        if( (state->cidx>=0&&ae_fp_less_eq(v,minbleic_maxnonmonotoniclen))&&state->nonmonotoniccnt>0 )
         {
             
             /*
@@ -15825,12 +16210,20 @@ lbl_61:
              */
             state->repterminationtype = 7;
             nextaction = 0;
-            goto lbl_59;
+            goto lbl_61;
         }
     }
     
     /*
      * Current point is updated.
+     *
+     * NOTE: below we rely on fact that for MCINFO=5 we ALWAYS have
+     *       Stp=StpMax returned by MCSRCH, even when StpMax<StpMin (it
+     *       is possible because StpMin=1E-50, and sometimes we have to
+     *       perform steps less than 1E-50).
+     *
+     *       Thus, when step activates constraints, we ALWAYS have Stp=StpMax.
+     *       It was not true before bug #570 was fixed.
      */
     ae_v_move(&state->xp.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     ae_v_move(&state->gp.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
@@ -15841,16 +16234,16 @@ lbl_61:
     state->repinneriterationscount = state->repinneriterationscount+1;
     if( !state->xrep )
     {
-        goto lbl_69;
+        goto lbl_73;
     }
     ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     minbleic_clearrequestfields(state, _state);
     state->xupdated = ae_true;
-    state->rstate.stage = 22;
+    state->rstate.stage = 23;
     goto lbl_rcomm;
-lbl_22:
+lbl_23:
     state->xupdated = ae_false;
-lbl_69:
+lbl_73:
     
     /*
      * Check for stopping.
@@ -15879,7 +16272,7 @@ lbl_69:
         {
             state->repterminationtype = 2;
             nextaction = 0;
-            goto lbl_59;
+            goto lbl_61;
         }
         state->lastgoodstep = vv;
         minbleic_updateestimateofgoodstep(&state->lastscaledgoodstep, v, _state);
@@ -15895,7 +16288,7 @@ lbl_69:
              */
             state->repterminationtype = 1;
             nextaction = 0;
-            goto lbl_59;
+            goto lbl_61;
         }
     }
     if( state->maxits>0&&state->repinneriterationscount>=state->maxits )
@@ -15906,7 +16299,7 @@ lbl_69:
          */
         state->repterminationtype = 5;
         nextaction = 0;
-        goto lbl_59;
+        goto lbl_61;
     }
     
     /*
@@ -15917,7 +16310,7 @@ lbl_69:
      */
     if( actstatus==0 )
     {
-        goto lbl_58;
+        goto lbl_60;
     }
     if( actstatus<0 )
     {
@@ -15927,16 +16320,16 @@ lbl_69:
     {
         nextaction = -1;
     }
-    goto lbl_59;
-    goto lbl_58;
-lbl_59:
+    goto lbl_61;
+    goto lbl_60;
+lbl_61:
     if( nextaction<0 )
     {
-        goto lbl_49;
+        goto lbl_51;
     }
     if( nextaction==0 )
     {
-        goto lbl_50;
+        goto lbl_52;
     }
     
     /*
@@ -15946,34 +16339,34 @@ lbl_59:
     minbleic_clearrequestfields(state, _state);
     if( ae_fp_neq(state->diffstep,0) )
     {
-        goto lbl_71;
+        goto lbl_75;
     }
     
     /*
      * Analytic gradient
      */
     state->needfg = ae_true;
-    state->rstate.stage = 23;
+    state->rstate.stage = 24;
     goto lbl_rcomm;
-lbl_23:
+lbl_24:
     state->needfg = ae_false;
     state->repnfev = state->repnfev+1;
-    goto lbl_72;
-lbl_71:
+    goto lbl_76;
+lbl_75:
     
     /*
      * Numerical differentiation
      */
     state->needf = ae_true;
-    state->rstate.stage = 24;
+    state->rstate.stage = 25;
     goto lbl_rcomm;
-lbl_24:
+lbl_25:
     state->fbase = state->f;
     i = 0;
-lbl_73:
+lbl_77:
     if( i>n-1 )
     {
-        goto lbl_75;
+        goto lbl_79;
     }
     v = state->x.ptr.p_double[i];
     b = ae_false;
@@ -15987,32 +16380,32 @@ lbl_73:
     }
     if( b )
     {
-        goto lbl_76;
+        goto lbl_80;
     }
     state->x.ptr.p_double[i] = v-state->diffstep*state->s.ptr.p_double[i];
-    state->rstate.stage = 25;
-    goto lbl_rcomm;
-lbl_25:
-    state->fm2 = state->f;
-    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 26;
     goto lbl_rcomm;
 lbl_26:
-    state->fm1 = state->f;
-    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
+    state->fm2 = state->f;
+    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 27;
     goto lbl_rcomm;
 lbl_27:
-    state->fp1 = state->f;
-    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->fm1 = state->f;
+    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 28;
     goto lbl_rcomm;
 lbl_28:
+    state->fp1 = state->f;
+    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->rstate.stage = 29;
+    goto lbl_rcomm;
+lbl_29:
     state->fp2 = state->f;
     state->g.ptr.p_double[i] = (8*(state->fp1-state->fm1)-(state->fp2-state->fm2))/(6*state->diffstep*state->s.ptr.p_double[i]);
     state->repnfev = state->repnfev+4;
-    goto lbl_77;
-lbl_76:
+    goto lbl_81;
+lbl_80:
     state->xm1 = v-state->diffstep*state->s.ptr.p_double[i];
     state->xp1 = v+state->diffstep*state->s.ptr.p_double[i];
     if( state->hasbndl.ptr.p_bool[i]&&ae_fp_less(state->xm1,state->bndl.ptr.p_double[i]) )
@@ -16024,14 +16417,14 @@ lbl_76:
         state->xp1 = state->bndu.ptr.p_double[i];
     }
     state->x.ptr.p_double[i] = state->xm1;
-    state->rstate.stage = 29;
-    goto lbl_rcomm;
-lbl_29:
-    state->fm1 = state->f;
-    state->x.ptr.p_double[i] = state->xp1;
     state->rstate.stage = 30;
     goto lbl_rcomm;
 lbl_30:
+    state->fm1 = state->f;
+    state->x.ptr.p_double[i] = state->xp1;
+    state->rstate.stage = 31;
+    goto lbl_rcomm;
+lbl_31:
     state->fp1 = state->f;
     if( ae_fp_neq(state->xm1,state->xp1) )
     {
@@ -16042,27 +16435,31 @@ lbl_30:
         state->g.ptr.p_double[i] = 0;
     }
     state->repnfev = state->repnfev+2;
-lbl_77:
+lbl_81:
     state->x.ptr.p_double[i] = v;
     i = i+1;
-    goto lbl_73;
-lbl_75:
+    goto lbl_77;
+lbl_79:
     state->f = state->fbase;
     state->needf = ae_false;
-lbl_72:
+lbl_76:
     state->fc = state->f;
     trimprepare(state->fc, &state->trimthreshold, _state);
     ae_v_move(&state->gc.ptr.p_double[0], 1, &state->g.ptr.p_double[0], 1, ae_v_len(0,n-1));
     ae_v_moveneg(&state->d.ptr.p_double[0], 1, &state->g.ptr.p_double[0], 1, ae_v_len(0,n-1));
     sasconstraineddirection(&state->sas, &state->gc, _state);
     sasconstraineddirectionprec(&state->sas, &state->d, _state);
-    ginit = ae_v_dotproduct(&state->gc.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
+    ginit = 0.0;
+    for(i=0; i<=n-1; i++)
+    {
+        ginit = ginit+ae_sqr(state->gc.ptr.p_double[i]*state->s.ptr.p_double[i], _state);
+    }
     ginit = ae_sqrt(ginit, _state);
     state->k = 0;
-lbl_78:
+lbl_82:
     if( state->k>n )
     {
-        goto lbl_79;
+        goto lbl_83;
     }
     
     /*
@@ -16102,7 +16499,7 @@ lbl_78:
     state->activationstep = state->curstpmax;
     if( state->cidx>=0&&ae_fp_eq(state->activationstep,0) )
     {
-        goto lbl_79;
+        goto lbl_83;
     }
     if( ae_fp_greater(state->stpmax,0) )
     {
@@ -16115,6 +16512,31 @@ lbl_78:
     }
     
     /*
+     * Report beginning of line search (if requested by caller).
+     * See description of the MinBLEICState for more information
+     * about fields accessible to caller.
+     *
+     * Caller may do following:
+     * * change State.Stp and load better initial estimate of
+     *   the step length.
+     * Caller may not terminate algorithm.
+     */
+    if( !state->drep )
+    {
+        goto lbl_84;
+    }
+    minbleic_clearrequestfields(state, _state);
+    state->lsstart = ae_true;
+    state->lbfgssearch = ae_true;
+    state->boundedstep = state->cidx>=0;
+    ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
+    state->rstate.stage = 32;
+    goto lbl_rcomm;
+lbl_32:
+    state->lsstart = ae_false;
+lbl_84:
+    
+    /*
      * Minimize F(x+alpha*d)
      */
     ae_v_move(&state->xn.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
@@ -16122,10 +16544,10 @@ lbl_78:
     state->fn = state->fc;
     state->mcstage = 0;
     mcsrch(n, &state->xn, &state->fn, &state->gn, &state->d, &state->stp, state->curstpmax, minbleic_gtol, &mcinfo, &state->nfev, &state->work, &state->lstate, &state->mcstage, _state);
-lbl_80:
+lbl_86:
     if( state->mcstage==0 )
     {
-        goto lbl_81;
+        goto lbl_87;
     }
     
     /*
@@ -16144,34 +16566,34 @@ lbl_80:
     minbleic_clearrequestfields(state, _state);
     if( ae_fp_neq(state->diffstep,0) )
     {
-        goto lbl_82;
+        goto lbl_88;
     }
     
     /*
      * Analytic gradient
      */
     state->needfg = ae_true;
-    state->rstate.stage = 31;
+    state->rstate.stage = 33;
     goto lbl_rcomm;
-lbl_31:
+lbl_33:
     state->needfg = ae_false;
     state->repnfev = state->repnfev+1;
-    goto lbl_83;
-lbl_82:
+    goto lbl_89;
+lbl_88:
     
     /*
      * Numerical differentiation
      */
     state->needf = ae_true;
-    state->rstate.stage = 32;
+    state->rstate.stage = 34;
     goto lbl_rcomm;
-lbl_32:
+lbl_34:
     state->fbase = state->f;
     i = 0;
-lbl_84:
+lbl_90:
     if( i>n-1 )
     {
-        goto lbl_86;
+        goto lbl_92;
     }
     v = state->x.ptr.p_double[i];
     b = ae_false;
@@ -16185,32 +16607,32 @@ lbl_84:
     }
     if( b )
     {
-        goto lbl_87;
+        goto lbl_93;
     }
     state->x.ptr.p_double[i] = v-state->diffstep*state->s.ptr.p_double[i];
-    state->rstate.stage = 33;
-    goto lbl_rcomm;
-lbl_33:
-    state->fm2 = state->f;
-    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
-    state->rstate.stage = 34;
-    goto lbl_rcomm;
-lbl_34:
-    state->fm1 = state->f;
-    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 35;
     goto lbl_rcomm;
 lbl_35:
-    state->fp1 = state->f;
-    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->fm2 = state->f;
+    state->x.ptr.p_double[i] = v-0.5*state->diffstep*state->s.ptr.p_double[i];
     state->rstate.stage = 36;
     goto lbl_rcomm;
 lbl_36:
+    state->fm1 = state->f;
+    state->x.ptr.p_double[i] = v+0.5*state->diffstep*state->s.ptr.p_double[i];
+    state->rstate.stage = 37;
+    goto lbl_rcomm;
+lbl_37:
+    state->fp1 = state->f;
+    state->x.ptr.p_double[i] = v+state->diffstep*state->s.ptr.p_double[i];
+    state->rstate.stage = 38;
+    goto lbl_rcomm;
+lbl_38:
     state->fp2 = state->f;
     state->g.ptr.p_double[i] = (8*(state->fp1-state->fm1)-(state->fp2-state->fm2))/(6*state->diffstep*state->s.ptr.p_double[i]);
     state->repnfev = state->repnfev+4;
-    goto lbl_88;
-lbl_87:
+    goto lbl_94;
+lbl_93:
     state->xm1 = v-state->diffstep*state->s.ptr.p_double[i];
     state->xp1 = v+state->diffstep*state->s.ptr.p_double[i];
     if( state->hasbndl.ptr.p_bool[i]&&ae_fp_less(state->xm1,state->bndl.ptr.p_double[i]) )
@@ -16222,14 +16644,14 @@ lbl_87:
         state->xp1 = state->bndu.ptr.p_double[i];
     }
     state->x.ptr.p_double[i] = state->xm1;
-    state->rstate.stage = 37;
+    state->rstate.stage = 39;
     goto lbl_rcomm;
-lbl_37:
+lbl_39:
     state->fm1 = state->f;
     state->x.ptr.p_double[i] = state->xp1;
-    state->rstate.stage = 38;
+    state->rstate.stage = 40;
     goto lbl_rcomm;
-lbl_38:
+lbl_40:
     state->fp1 = state->f;
     if( ae_fp_neq(state->xm1,state->xp1) )
     {
@@ -16240,14 +16662,14 @@ lbl_38:
         state->g.ptr.p_double[i] = 0;
     }
     state->repnfev = state->repnfev+2;
-lbl_88:
+lbl_94:
     state->x.ptr.p_double[i] = v;
     i = i+1;
-    goto lbl_84;
-lbl_86:
+    goto lbl_90;
+lbl_92:
     state->f = state->fbase;
     state->needf = ae_false;
-lbl_83:
+lbl_89:
     
     /*
      * Back to MCSRCH
@@ -16255,13 +16677,13 @@ lbl_83:
      * NOTE: penalty term from correction is added to FN in order
      *       to penalize increase in infeasibility.
      */
-    state->fn = state->f+penalty;
+    state->fn = state->f+minbleic_penaltyfactor*state->maxscaledgrad*penalty;
     ae_v_move(&state->gn.ptr.p_double[0], 1, &state->g.ptr.p_double[0], 1, ae_v_len(0,n-1));
     sasconstraineddirection(&state->sas, &state->gn, _state);
     trimfunction(&state->fn, &state->gn, n, state->trimthreshold, _state);
     mcsrch(n, &state->xn, &state->fn, &state->gn, &state->d, &state->stp, state->curstpmax, minbleic_gtol, &mcinfo, &state->nfev, &state->work, &state->lstate, &state->mcstage, _state);
-    goto lbl_80;
-lbl_81:
+    goto lbl_86;
+lbl_87:
     ae_v_add(&state->sk.ptr.pp_double[state->p][0], 1, &state->xn.ptr.p_double[0], 1, ae_v_len(0,n-1));
     ae_v_add(&state->yk.ptr.pp_double[state->p][0], 1, &state->gn.ptr.p_double[0], 1, ae_v_len(0,n-1));
     
@@ -16270,7 +16692,7 @@ lbl_81:
      */
     if( mcinfo!=1&&mcinfo!=5 )
     {
-        goto lbl_79;
+        goto lbl_83;
     }
     
     /*
@@ -16284,16 +16706,16 @@ lbl_81:
     state->fc = state->fn;
     if( !state->xrep )
     {
-        goto lbl_89;
+        goto lbl_95;
     }
     ae_v_move(&state->x.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
     minbleic_clearrequestfields(state, _state);
     state->xupdated = ae_true;
-    state->rstate.stage = 39;
+    state->rstate.stage = 41;
     goto lbl_rcomm;
-lbl_39:
+lbl_41:
     state->xupdated = ae_false;
-lbl_89:
+lbl_95:
     state->repinneriterationscount = state->repinneriterationscount+1;
     
     /*
@@ -16315,16 +16737,25 @@ lbl_89:
     /*
      * Termination of the L-BFGS algorithm:
      * a) line search was performed with activation of constraint
-     * b) gradient decreased below GDecay
+     * b) scaled gradient decreased below GDecay
+     * c) iterations counter >= MaxIts
      */
     if( actstatus>=0 )
     {
-        goto lbl_79;
+        goto lbl_83;
     }
-    v = ae_v_dotproduct(&state->gc.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
+    v = 0.0;
+    for(i=0; i<=n-1; i++)
+    {
+        v = v+ae_sqr(state->gc.ptr.p_double[i]*state->s.ptr.p_double[i], _state);
+    }
     if( ae_fp_less(ae_sqrt(v, _state),gdecay*ginit) )
     {
-        goto lbl_79;
+        goto lbl_83;
+    }
+    if( state->maxits>0&&state->repinneriterationscount>=state->maxits )
+    {
+        goto lbl_83;
     }
     
     /*
@@ -16337,7 +16768,7 @@ lbl_89:
     vv = ae_v_dotproduct(&state->yk.ptr.pp_double[state->p][0], 1, &state->yk.ptr.pp_double[state->p][0], 1, ae_v_len(0,n-1));
     if( ae_fp_eq(v,0)||ae_fp_eq(vv,0) )
     {
-        goto lbl_79;
+        goto lbl_83;
     }
     state->rho.ptr.p_double[state->p] = 1/v;
     ae_v_move(&state->work.ptr.p_double[0], 1, &state->gn.ptr.p_double[0], 1, ae_v_len(0,n-1));
@@ -16359,16 +16790,16 @@ lbl_89:
     }
     ae_v_moveneg(&state->d.ptr.p_double[0], 1, &state->work.ptr.p_double[0], 1, ae_v_len(0,n-1));
     state->k = state->k+1;
-    goto lbl_78;
-lbl_79:
+    goto lbl_82;
+lbl_83:
     
     /*
      * Decrease decay coefficient. Subsequent L-BFGS stages will
      * have more stringent stopping criteria.
      */
     gdecay = ae_maxreal(gdecay*minbleic_decaycorrection, minbleic_mindecay, _state);
-    goto lbl_49;
-lbl_50:
+    goto lbl_51;
+lbl_52:
     sasstopoptimization(&state->sas, _state);
     state->repouteriterationscount = 1;
     result = ae_false;
@@ -16385,8 +16816,8 @@ lbl_rcomm:
     state->rstate.ia.ptr.p_int[3] = j;
     state->rstate.ia.ptr.p_int[4] = badbfgsits;
     state->rstate.ia.ptr.p_int[5] = nextaction;
-    state->rstate.ia.ptr.p_int[6] = actstatus;
-    state->rstate.ia.ptr.p_int[7] = mcinfo;
+    state->rstate.ia.ptr.p_int[6] = mcinfo;
+    state->rstate.ia.ptr.p_int[7] = actstatus;
     state->rstate.ia.ptr.p_int[8] = ic;
     state->rstate.ba.ptr.p_bool[0] = b;
     state->rstate.ra.ptr.p_double[0] = v;
@@ -16415,8 +16846,8 @@ OUTPUT PARAMETERS:
                        either nonexistent or too hard to find. Try to
                        restart optimizer with better initial approximation
                 *  1   relative function improvement is no more than EpsF.
-                *  2   relative step is no more than EpsX.
-                *  4   gradient norm is no more than EpsG
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
                 *  5   MaxIts steps was taken
                 More information about fields of this  structure  can  be
                 found in the comments on MinBLEICReport datatype.
@@ -16528,6 +16959,25 @@ void minbleicrestartfrom(minbleicstate* state,
     ae_vector_set_length(&state->rstate.ra, 4+1, _state);
     state->rstate.stage = -1;
     minbleic_clearrequestfields(state, _state);
+    sasstopoptimization(&state->sas, _state);
+}
+
+
+/*************************************************************************
+This subroutine finalizes internal structures after emergency  termination
+from State.LSStart report (see comments on MinBLEICState for more information).
+
+INPUT PARAMETERS:
+    State   -   structure after exit from LSStart report
+
+  -- ALGLIB --
+     Copyright 28.11.2010 by Bochkanov Sergey
+*************************************************************************/
+void minbleicemergencytermination(minbleicstate* state, ae_state *_state)
+{
+
+
+    sasstopoptimization(&state->sas, _state);
 }
 
 
@@ -16602,6 +17052,7 @@ static void minbleic_clearrequestfields(minbleicstate* state,
     state->needf = ae_false;
     state->needfg = ae_false;
     state->xupdated = ae_false;
+    state->lsstart = ae_false;
 }
 
 
@@ -16657,6 +17108,7 @@ static void minbleic_minbleicinitinternal(ae_int_t n,
     minbleicsetlc(state, &c, &ct, 0, _state);
     minbleicsetcond(state, 0.0, 0.0, 0.0, 0, _state);
     minbleicsetxrep(state, ae_false, _state);
+    minbleicsetdrep(state, ae_false, _state);
     minbleicsetstpmax(state, 0.0, _state);
     minbleicsetprecdefault(state, _state);
     minbleicrestartfrom(state, x, _state);
@@ -16774,6 +17226,7 @@ ae_bool _minbleicstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bo
     dst->epsx = src->epsx;
     dst->maxits = src->maxits;
     dst->xrep = src->xrep;
+    dst->drep = src->drep;
     dst->stpmax = src->stpmax;
     dst->diffstep = src->diffstep;
     if( !_sactiveset_init_copy(&dst->sas, &src->sas, _state, make_automatic) )
@@ -16791,6 +17244,9 @@ ae_bool _minbleicstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bo
     dst->needf = src->needf;
     dst->needfg = src->needfg;
     dst->xupdated = src->xupdated;
+    dst->lsstart = src->lsstart;
+    dst->lbfgssearch = src->lbfgssearch;
+    dst->boundedstep = src->boundedstep;
     dst->teststep = src->teststep;
     if( !_rcommstate_init_copy(&dst->rstate, &src->rstate, _state, make_automatic) )
         return ae_false;
@@ -16815,6 +17271,7 @@ ae_bool _minbleicstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bo
     dst->nic = src->nic;
     dst->lastgoodstep = src->lastgoodstep;
     dst->lastscaledgoodstep = src->lastscaledgoodstep;
+    dst->maxscaledgrad = src->maxscaledgrad;
     if( !ae_vector_init_copy(&dst->hasbndl, &src->hasbndl, _state, make_automatic) )
         return ae_false;
     if( !ae_vector_init_copy(&dst->hasbndu, &src->hasbndu, _state, make_automatic) )
@@ -18554,6 +19011,7 @@ void minqpcreate(ae_int_t n, minqpstate* state, ae_state *_state)
     state->nic = 0;
     state->repterminationtype = 0;
     state->anorm = 1;
+    state->akind = 0;
     cqminit(n, &state->a, _state);
     sasinit(n, &state->sas, _state);
     ae_vector_set_length(&state->b, n, _state);
@@ -18584,6 +19042,7 @@ void minqpcreate(ae_int_t n, minqpstate* state, ae_state *_state)
     state->havex = ae_false;
     minqpsetalgocholesky(state, _state);
     normestimatorcreate(n, n, 5, 5, &state->estimator, _state);
+    minbleiccreate(n, &state->startx, &state->solver, _state);
 }
 
 
@@ -18614,11 +19073,17 @@ void minqpsetlinearterm(minqpstate* state,
 
 
 /*************************************************************************
-This function sets quadratic term for QP solver.
+This  function  sets  dense  quadratic  term  for  QP solver. By  default,
+quadratic term is zero.
 
-By default quadratic term is zero.
+SUPPORT BY ALGLIB QP ALGORITHMS:
 
-IMPORTANT: this solver minimizes following  function:
+Dense quadratic term can be handled by any of the QP algorithms  supported
+by ALGLIB QP Solver.
+
+IMPORTANT:
+
+This solver minimizes following  function:
     f(x) = 0.5*x'*A*x + b'*x.
 Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
     f(x) = x^2 + x
@@ -18653,6 +19118,61 @@ void minqpsetquadraticterm(minqpstate* state,
     ae_assert(a->cols>=n, "MinQPSetQuadraticTerm: Cols(A)<N", _state);
     ae_assert(isfinitertrmatrix(a, n, isupper, _state), "MinQPSetQuadraticTerm: A contains infinite or NaN elements", _state);
     minqpsetquadratictermfast(state, a, isupper, 0.0, _state);
+}
+
+
+/*************************************************************************
+This  function  sets  sparse  quadratic  term  for  QP solver. By default,
+quadratic term is zero.
+
+SUPPORT BY ALGLIB QP ALGORITHMS:
+
+Sparse quadratic term is supported only by BLEIC-based QP  algorithm  (one
+which is activated by MinQPSetAlgoBLEIC function). Cholesky-based QP  algo
+won't be able to deal  with  sparse  quadratic  term  and  will  terminate
+abnormally.
+
+IF YOU CALLED THIS FUNCTION, YOU MUST SWITCH TO BLEIC-BASED  QP  ALGORITHM
+BEFORE CALLING MINQPOPTIMIZE() FUNCTION.
+
+IMPORTANT:
+
+This solver minimizes following  function:
+    f(x) = 0.5*x'*A*x + b'*x.
+Note that quadratic term has 0.5 before it. So if  you  want  to  minimize
+    f(x) = x^2 + x
+you should rewrite your problem as follows:
+    f(x) = 0.5*(2*x^2) + x
+and your matrix A will be equal to [[2.0]], not to [[1.0]]
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    A       -   matrix, array[N,N]
+    IsUpper -   (optional) storage type:
+                * if True, symmetric matrix  A  is  given  by  its  upper
+                  triangle, and the lower triangle isn’t used
+                * if False, symmetric matrix  A  is  given  by  its lower
+                  triangle, and the upper triangle isn’t used
+                * if not given, both lower and upper  triangles  must  be
+                  filled.
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetquadratictermsparse(minqpstate* state,
+     sparsematrix* a,
+     ae_bool isupper,
+     ae_state *_state)
+{
+    ae_int_t n;
+
+
+    n = state->n;
+    ae_assert(sparsegetnrows(a, _state)>=n, "MinQPSetQuadraticTermSparse: Rows(A)<N", _state);
+    ae_assert(sparsegetncols(a, _state)>=n, "MinQPSetQuadraticTermSparse: Cols(A)<N", _state);
+    sparsecopytocrs(a, &state->sparsea, _state);
+    state->sparseaupper = isupper;
+    state->akind = 1;
 }
 
 
@@ -18714,15 +19234,76 @@ void minqpsetorigin(minqpstate* state,
 
 
 /*************************************************************************
-This function tells solver to use Cholesky-based algorithm.
+This function sets scaling coefficients.
 
-Cholesky-based algorithm can be used when:
-* problem is convex
-* there is no constraints or only boundary constraints are present
+ALGLIB optimizers use scaling matrices to test stopping  conditions  (step
+size and gradient are scaled before comparison with tolerances).  Scale of
+the I-th variable is a translation invariant measure of:
+a) "how large" the variable is
+b) how large the step should be to make significant changes in the function
 
-This algorithm has O(N^3) complexity for unconstrained problem and  is  up
-to several times slower on bound constrained  problems  (these  additional
-iterations are needed to identify active constraints).
+BLEIC-based QP solver uses scale for two purposes:
+* to evaluate stopping conditions
+* for preconditioning of the underlying BLEIC solver
+
+INPUT PARAMETERS:
+    State   -   structure stores algorithm state
+    S       -   array[N], non-zero scaling coefficients
+                S[i] may be negative, sign doesn't matter.
+
+  -- ALGLIB --
+     Copyright 14.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetscale(minqpstate* state,
+     /* Real    */ ae_vector* s,
+     ae_state *_state)
+{
+    ae_int_t i;
+
+
+    ae_assert(s->cnt>=state->n, "MinQPSetScale: Length(S)<N", _state);
+    for(i=0; i<=state->n-1; i++)
+    {
+        ae_assert(ae_isfinite(s->ptr.p_double[i], _state), "MinQPSetScale: S contains infinite or NAN elements", _state);
+        ae_assert(ae_fp_neq(s->ptr.p_double[i],0), "MinQPSetScale: S contains zero elements", _state);
+        state->s.ptr.p_double[i] = ae_fabs(s->ptr.p_double[i], _state);
+    }
+}
+
+
+/*************************************************************************
+This function tells solver to use Cholesky-based algorithm. This algorithm
+is active by default.
+
+DESCRIPTION:
+
+Cholesky-based algorithm can be used only for problems which:
+* have dense quadratic term, set  by  MinQPSetQuadraticTerm(),  sparse  or
+  structured problems are not supported.
+* are strictly convex, i.e. quadratic term is symmetric positive definite,
+  indefinite or semidefinite problems are not supported by this algorithm.
+
+If anything of what listed above is violated, you may use  BLEIC-based  QP
+algorithm which can be activated by MinQPSetAlgoBLEIC().
+
+BENEFITS AND DRAWBACKS:
+
+This  algorithm  gives  best  precision amongst all QP solvers provided by
+ALGLIB (Newton iterations  have  much  higher  precision  than  any  other
+optimization algorithm). This solver also gracefully handles problems with
+very large amount of constraints.
+
+Performance of the algorithm is good because internally  it  uses  Level 3
+Dense BLAS for its performance-critical parts.
+
+
+From the other side, algorithm has  O(N^3)  complexity  for  unconstrained
+problems and up to orders of  magnitude  slower  on  constrained  problems
+(these additional iterations are needed to identify  active  constraints).
+So, its running time depends on number of constraints active  at solution.
+
+Furthermore, this algorithm can not solve problems with sparse matrices or
+problems with semidefinite/indefinite matrices of any kind (dense/sparse).
 
 INPUT PARAMETERS:
     State   -   structure which stores algorithm state
@@ -18735,6 +19316,107 @@ void minqpsetalgocholesky(minqpstate* state, ae_state *_state)
 
 
     state->algokind = 1;
+}
+
+
+/*************************************************************************
+This function tells solver to use BLEIC-based algorithm and sets  stopping
+criteria for the algorithm.
+
+DESCRIPTION:
+
+BLEIC-based QP algorithm can be used for any kind of QP problems:
+* problems with both dense and sparse quadratic terms
+* problems with positive definite, semidefinite, indefinite terms
+
+BLEIC-based algorithm can solve even indefinite problems - as long as they
+are bounded from below on the feasible set. Of course, global  minimum  is
+found only  for  positive  definite  and  semidefinite  problems.  As  for
+indefinite ones - only local minimum is found.
+
+BENEFITS AND DRAWBACKS:
+
+This algorithm can be used to solve both convex and indefinite QP problems
+and it can utilize sparsity of the quadratic  term  (algorithm  calculates
+matrix-vector products, which can be  performed  efficiently  in  case  of
+sparse matrix).
+
+Algorithm has iteration cost, which (assuming fixed amount of non-boundary
+linear constraints) linearly depends on problem size. Boundary constraints
+does not significantly change iteration cost.
+
+Thus, it outperforms Cholesky-based QP algorithm (CQP) on high-dimensional
+sparse problems with moderate amount of constraints.
+
+
+From the other side, unlike CQP solver, this algorithm does NOT  make  use
+of Level 3 Dense BLAS. Thus, its performance on dense problems is inferior
+to that of CQP solver.
+
+Its precision is also inferior to that of CQP. CQP performs  Newton  steps
+which are know to achieve very good  precision. In many cases Newton  step
+leads us exactly to the solution. BLEIC-QP performs LBFGS steps, which are
+good at detecting neighborhood of the solution, buy need  many  iterations
+to find solution with 6 digits of precision.
+
+INPUT PARAMETERS:
+    State   -   structure which stores algorithm state
+    EpsG    -   >=0
+                The  subroutine  finishes  its  work   if   the  condition
+                |v|<EpsG is satisfied, where:
+                * |.| means Euclidian norm
+                * v - scaled constrained gradient vector, v[i]=g[i]*s[i]
+                * g - gradient
+                * s - scaling coefficients set by MinQPSetScale()
+    EpsF    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:  |F(k+1)-F(k)|<=EpsF*max{|F(k)|,|F(k+1)|,1}
+    EpsX    -   >=0
+                The  subroutine  finishes  its work if exploratory steepest
+                descent  step  on  k+1-th  iteration  satisfies   following
+                condition:  
+                * |.| means Euclidian norm
+                * v - scaled step vector, v[i]=dx[i]/s[i]
+                * dx - step vector, dx=X(k+1)-X(k)
+                * s - scaling coefficients set by MinQPSetScale()
+    MaxIts  -   maximum number of iterations. If MaxIts=0, the  number  of
+                iterations is unlimited.
+
+Passing EpsG=0, EpsF=0 and EpsX=0 and MaxIts=0 (simultaneously) will lead
+to automatic stopping criterion selection (presently it is  small    step
+length, but it may change in the future versions of ALGLIB).
+
+IT IS VERY IMPORTANT THAT YOU CALL MinQPSetScale() WHEN YOU USE THIS ALGO!
+
+  -- ALGLIB --
+     Copyright 11.01.2011 by Bochkanov Sergey
+*************************************************************************/
+void minqpsetalgobleic(minqpstate* state,
+     double epsg,
+     double epsf,
+     double epsx,
+     ae_int_t maxits,
+     ae_state *_state)
+{
+
+
+    ae_assert(ae_isfinite(epsg, _state), "MinQPSetAlgoBLEIC: EpsG is not finite number", _state);
+    ae_assert(ae_fp_greater_eq(epsg,0), "MinQPSetAlgoBLEIC: negative EpsG", _state);
+    ae_assert(ae_isfinite(epsf, _state), "MinQPSetAlgoBLEIC: EpsF is not finite number", _state);
+    ae_assert(ae_fp_greater_eq(epsf,0), "MinQPSetAlgoBLEIC: negative EpsF", _state);
+    ae_assert(ae_isfinite(epsx, _state), "MinQPSetAlgoBLEIC: EpsX is not finite number", _state);
+    ae_assert(ae_fp_greater_eq(epsx,0), "MinQPSetAlgoBLEIC: negative EpsX", _state);
+    ae_assert(maxits>=0, "MinQPSetAlgoBLEIC: negative MaxIts!", _state);
+    state->algokind = 2;
+    if( ((ae_fp_eq(epsg,0)&&ae_fp_eq(epsf,0))&&ae_fp_eq(epsx,0))&&maxits==0 )
+    {
+        epsx = 1.0E-6;
+    }
+    state->bleicepsg = epsg;
+    state->bleicepsf = epsf;
+    state->bleicepsx = epsx;
+    state->bleicmaxits = maxits;
 }
 
 
@@ -18938,6 +19620,7 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
     ae_int_t actstatus;
     double noiselevel;
     ae_int_t badnewtonits;
+    double maxscaledgrad;
 
 
     noisetolerance = 10;
@@ -18984,116 +19667,42 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
     }
     
     /*
-     * Our formulation of quadratic problem includes origin point,
-     * i.e. we have F(x-x_origin) which is minimized subject to
-     * constraints on x, instead of having simply F(x).
-     *
-     * Here we make transition from non-zero origin to zero one.
-     * In order to make such transition we have to:
-     * 1. subtract x_origin from x_start
-     * 2. modify constraints
-     * 3. solve problem
-     * 4. add x_origin to solution
-     *
-     * There is alternate solution - to modify quadratic function
-     * by expansion of multipliers containing (x-x_origin), but
-     * we prefer to modify constraints, because it is a) more precise
-     * and b) easier to to.
-     *
-     * Parts (1)-(2) are done here. After this block is over,
-     * we have:
-     * * XS, which stores shifted XStart (if we don't have XStart,
-     *   value of XS will be ignored later)
-     * * WorkBndL, WorkBndU, which store modified boundary constraints.
-     */
-    for(i=0; i<=n-1; i++)
-    {
-        if( state->havebndl.ptr.p_bool[i] )
-        {
-            state->workbndl.ptr.p_double[i] = state->bndl.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
-        }
-        else
-        {
-            state->workbndl.ptr.p_double[i] = _state->v_neginf;
-        }
-        if( state->havebndu.ptr.p_bool[i] )
-        {
-            state->workbndu.ptr.p_double[i] = state->bndu.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
-        }
-        else
-        {
-            state->workbndu.ptr.p_double[i] = _state->v_posinf;
-        }
-    }
-    rmatrixsetlengthatleast(&state->workcleic, state->nec+state->nic, n+1, _state);
-    for(i=0; i<=state->nec+state->nic-1; i++)
-    {
-        v = ae_v_dotproduct(&state->cleic.ptr.pp_double[i][0], 1, &state->xorigin.ptr.p_double[0], 1, ae_v_len(0,n-1));
-        ae_v_move(&state->workcleic.ptr.pp_double[i][0], 1, &state->cleic.ptr.pp_double[i][0], 1, ae_v_len(0,n-1));
-        state->workcleic.ptr.pp_double[i][n] = state->cleic.ptr.pp_double[i][n]-v;
-    }
-    
-    /*
-     * modify starting point XS according to boundary constraints
+     * Initial point:
+     * * if we have starting point in StartX, we just have to bound it
+     * * if we do not have StartX, deduce initial point from boundary constraints
      */
     if( state->havex )
     {
-        
-        /*
-         * We have starting point in StartX, so we just have to shift and bound it
-         */
         for(i=0; i<=n-1; i++)
         {
-            state->xs.ptr.p_double[i] = state->startx.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
-            if( state->havebndl.ptr.p_bool[i] )
+            state->xs.ptr.p_double[i] = state->startx.ptr.p_double[i];
+            if( state->havebndl.ptr.p_bool[i]&&ae_fp_less(state->xs.ptr.p_double[i],state->bndl.ptr.p_double[i]) )
             {
-                if( ae_fp_less(state->xs.ptr.p_double[i],state->workbndl.ptr.p_double[i]) )
-                {
-                    state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
-                }
+                state->xs.ptr.p_double[i] = state->bndl.ptr.p_double[i];
             }
-            if( state->havebndu.ptr.p_bool[i] )
+            if( state->havebndu.ptr.p_bool[i]&&ae_fp_greater(state->xs.ptr.p_double[i],state->bndu.ptr.p_double[i]) )
             {
-                if( ae_fp_greater(state->xs.ptr.p_double[i],state->workbndu.ptr.p_double[i]) )
-                {
-                    state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
-                }
+                state->xs.ptr.p_double[i] = state->bndu.ptr.p_double[i];
             }
         }
     }
     else
     {
-        
-        /*
-         * We don't have starting point, so we deduce it from
-         * constraints (if they are present).
-         *
-         * NOTE: XS contains some meaningless values from previous block
-         * which are ignored by code below.
-         */
         for(i=0; i<=n-1; i++)
         {
             if( state->havebndl.ptr.p_bool[i]&&state->havebndu.ptr.p_bool[i] )
             {
-                state->xs.ptr.p_double[i] = 0.5*(state->workbndl.ptr.p_double[i]+state->workbndu.ptr.p_double[i]);
-                if( ae_fp_less(state->xs.ptr.p_double[i],state->workbndl.ptr.p_double[i]) )
-                {
-                    state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
-                }
-                if( ae_fp_greater(state->xs.ptr.p_double[i],state->workbndu.ptr.p_double[i]) )
-                {
-                    state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
-                }
+                state->xs.ptr.p_double[i] = 0.5*(state->bndl.ptr.p_double[i]+state->bndu.ptr.p_double[i]);
                 continue;
             }
             if( state->havebndl.ptr.p_bool[i] )
             {
-                state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
+                state->xs.ptr.p_double[i] = state->bndl.ptr.p_double[i];
                 continue;
             }
             if( state->havebndu.ptr.p_bool[i] )
             {
-                state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
+                state->xs.ptr.p_double[i] = state->bndu.ptr.p_double[i];
                 continue;
             }
             state->xs.ptr.p_double[i] = 0;
@@ -19101,28 +19710,146 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
     }
     
     /*
-     * Select algo
+     * Cholesky solver.
      */
     if( state->algokind==1 )
     {
         
         /*
-         * Cholesky-based algorithm for dense bound constrained problems.
+         * Check matrix type.
+         * Cholesky solver supports only dense matrices.
+         */
+        if( state->akind!=0 )
+        {
+            state->repterminationtype = -5;
+            return;
+        }
+        
+        /*
+         * Our formulation of quadratic problem includes origin point,
+         * i.e. we have F(x-x_origin) which is minimized subject to
+         * constraints on x, instead of having simply F(x).
          *
-         * This algorithm exists in two variants:
-         * * unconstrained one, which can solve problem using only one NxN
-         *   double matrix
-         * * bound constrained one, which needs two NxN matrices
+         * Here we make transition from non-zero origin to zero one.
+         * In order to make such transition we have to:
+         * 1. subtract x_origin from x_start
+         * 2. modify constraints
+         * 3. solve problem
+         * 4. add x_origin to solution
          *
-         * We will try to solve problem using unconstrained algorithm,
-         * and will use bound constrained version only when constraints
-         * are actually present
+         * There is alternate solution - to modify quadratic function
+         * by expansion of multipliers containing (x-x_origin), but
+         * we prefer to modify constraints, because it is a) more precise
+         * and b) easier to to.
+         *
+         * Parts (1)-(2) are done here. After this block is over,
+         * we have:
+         * * XS, which stores shifted XStart (if we don't have XStart,
+         *   value of XS will be ignored later)
+         * * WorkBndL, WorkBndU, which store modified boundary constraints.
+         */
+        for(i=0; i<=n-1; i++)
+        {
+            if( state->havebndl.ptr.p_bool[i] )
+            {
+                state->workbndl.ptr.p_double[i] = state->bndl.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
+            }
+            else
+            {
+                state->workbndl.ptr.p_double[i] = _state->v_neginf;
+            }
+            if( state->havebndu.ptr.p_bool[i] )
+            {
+                state->workbndu.ptr.p_double[i] = state->bndu.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
+            }
+            else
+            {
+                state->workbndu.ptr.p_double[i] = _state->v_posinf;
+            }
+        }
+        rmatrixsetlengthatleast(&state->workcleic, state->nec+state->nic, n+1, _state);
+        for(i=0; i<=state->nec+state->nic-1; i++)
+        {
+            v = ae_v_dotproduct(&state->cleic.ptr.pp_double[i][0], 1, &state->xorigin.ptr.p_double[0], 1, ae_v_len(0,n-1));
+            ae_v_move(&state->workcleic.ptr.pp_double[i][0], 1, &state->cleic.ptr.pp_double[i][0], 1, ae_v_len(0,n-1));
+            state->workcleic.ptr.pp_double[i][n] = state->cleic.ptr.pp_double[i][n]-v;
+        }
+        
+        /*
+         * Starting point XS
+         */
+        if( state->havex )
+        {
+            
+            /*
+             * We have starting point in StartX, so we just have to shift and bound it
+             */
+            for(i=0; i<=n-1; i++)
+            {
+                state->xs.ptr.p_double[i] = state->startx.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
+                if( state->havebndl.ptr.p_bool[i] )
+                {
+                    if( ae_fp_less(state->xs.ptr.p_double[i],state->workbndl.ptr.p_double[i]) )
+                    {
+                        state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
+                    }
+                }
+                if( state->havebndu.ptr.p_bool[i] )
+                {
+                    if( ae_fp_greater(state->xs.ptr.p_double[i],state->workbndu.ptr.p_double[i]) )
+                    {
+                        state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
+                    }
+                }
+            }
+        }
+        else
+        {
+            
+            /*
+             * We don't have starting point, so we deduce it from
+             * constraints (if they are present).
+             *
+             * NOTE: XS contains some meaningless values from previous block
+             * which are ignored by code below.
+             */
+            for(i=0; i<=n-1; i++)
+            {
+                if( state->havebndl.ptr.p_bool[i]&&state->havebndu.ptr.p_bool[i] )
+                {
+                    state->xs.ptr.p_double[i] = 0.5*(state->workbndl.ptr.p_double[i]+state->workbndu.ptr.p_double[i]);
+                    if( ae_fp_less(state->xs.ptr.p_double[i],state->workbndl.ptr.p_double[i]) )
+                    {
+                        state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
+                    }
+                    if( ae_fp_greater(state->xs.ptr.p_double[i],state->workbndu.ptr.p_double[i]) )
+                    {
+                        state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
+                    }
+                    continue;
+                }
+                if( state->havebndl.ptr.p_bool[i] )
+                {
+                    state->xs.ptr.p_double[i] = state->workbndl.ptr.p_double[i];
+                    continue;
+                }
+                if( state->havebndu.ptr.p_bool[i] )
+                {
+                    state->xs.ptr.p_double[i] = state->workbndu.ptr.p_double[i];
+                    continue;
+                }
+                state->xs.ptr.p_double[i] = 0;
+            }
+        }
+        
+        /*
+         * Handle special case - no constraints
          */
         if( nbc==0&&state->nec+state->nic==0 )
         {
             
             /*
-             * "Simple" unconstrained version
+             * "Simple" unconstrained Cholesky
              */
             bvectorsetlengthatleast(&state->tmpb, n, _state);
             for(i=0; i<=n-1; i++)
@@ -19144,6 +19871,10 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
             state->repterminationtype = 4;
             return;
         }
+        
+        /*
+         * Prepare "active set" structure
+         */
         sassetbc(&state->sas, &state->workbndl, &state->workbndu, _state);
         sassetlcx(&state->sas, &state->workcleic, state->nec, state->nic, _state);
         sassetscale(&state->sas, &state->s, _state);
@@ -19154,24 +19885,35 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
         }
         
         /*
-         * Main cycle of BLEIC-QP algorithm
+         * Main cycle of CQP algorithm
          */
         state->repterminationtype = 4;
         badnewtonits = 0;
+        maxscaledgrad = 0.0;
         for(;;)
         {
             
             /*
              * Update iterations count
              */
-            state->repinneriterationscount = state->repinneriterationscount+1;
+            inc(&state->repouteriterationscount, _state);
+            inc(&state->repinneriterationscount, _state);
             
             /*
-             * Phase 1: determine active set
+             * Phase 1.
+             *
+             * Determine active set.
+             * Update MaxScaledGrad.
              */
             cqmadx(&state->a, &state->sas.xc, &state->rctmpg, _state);
             ae_v_add(&state->rctmpg.ptr.p_double[0], 1, &state->b.ptr.p_double[0], 1, ae_v_len(0,n-1));
             sasreactivateconstraints(&state->sas, &state->rctmpg, _state);
+            v = 0.0;
+            for(i=0; i<=n-1; i++)
+            {
+                v = v+ae_sqr(state->rctmpg.ptr.p_double[i]*state->s.ptr.p_double[i], _state);
+            }
+            maxscaledgrad = ae_maxreal(maxscaledgrad, ae_sqrt(v, _state), _state);
             
             /*
              * Phase 2: perform penalized steepest descent step.
@@ -19185,12 +19927,24 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
             {
                 
                 /*
-                 * Calculate constrained descent direction, store to PG
+                 * Calculate constrained descent direction, store to PG.
+                 * Successful termination if PG is zero.
                  */
                 cqmadx(&state->a, &state->sas.xc, &state->gc, _state);
                 ae_v_add(&state->gc.ptr.p_double[0], 1, &state->b.ptr.p_double[0], 1, ae_v_len(0,n-1));
                 sasconstraineddescent(&state->sas, &state->gc, &state->pg, _state);
                 state->debugphase2flops = state->debugphase2flops+4*(state->nec+state->nic)*n;
+                v0 = ae_v_dotproduct(&state->pg.ptr.p_double[0], 1, &state->pg.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                if( ae_fp_eq(v0,0) )
+                {
+                    
+                    /*
+                     * Constrained derivative is zero.
+                     * Solution found.
+                     */
+                    nextaction = 0;
+                    break;
+                }
                 
                 /*
                  * Build quadratic model of F along descent direction:
@@ -19204,6 +19958,7 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
                  * NOTE: D0 is not actually used, but we prefer to maintain it.
                  */
                 fprev = minqp_minqpmodelvalue(&state->a, &state->b, &state->sas.xc, n, &state->tmp0, _state);
+                fprev = fprev+minqp_penaltyfactor*maxscaledgrad*sasactivelcpenalty1(&state->sas, &state->sas.xc, _state);
                 cqmevalx(&state->a, &state->sas.xc, &v, &noiselevel, _state);
                 v0 = cqmxtadx2(&state->a, &state->pg, _state);
                 state->debugphase2flops = state->debugphase2flops+3*2*n*n;
@@ -19211,8 +19966,23 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
                 v1 = ae_v_dotproduct(&state->pg.ptr.p_double[0], 1, &state->gc.ptr.p_double[0], 1, ae_v_len(0,n-1));
                 d1 = v1;
                 d0 = fprev;
-                if( ae_fp_less_eq(d2,0)||ae_fp_greater_eq(d1,0) )
+                if( ae_fp_less_eq(d2,0) )
                 {
+                    
+                    /*
+                     * Second derivative is non-positive, function is non-convex.
+                     */
+                    state->repterminationtype = -5;
+                    nextaction = 0;
+                    break;
+                }
+                if( ae_fp_greater_eq(d1,0) )
+                {
+                    
+                    /*
+                     * Second derivative is positive, first derivative is non-negative.
+                     * Solution found.
+                     */
                     nextaction = 0;
                     break;
                 }
@@ -19259,6 +20029,7 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
                 ae_v_move(&state->xn.ptr.p_double[0], 1, &state->sas.xc.ptr.p_double[0], 1, ae_v_len(0,n-1));
                 ae_v_addd(&state->xn.ptr.p_double[0], 1, &state->pg.ptr.p_double[0], 1, ae_v_len(0,n-1), v);
                 fcand = minqp_minqpmodelvalue(&state->a, &state->b, &state->xn, n, &state->tmp0, _state);
+                fcand = fcand+minqp_penaltyfactor*maxscaledgrad*sasactivelcpenalty1(&state->sas, &state->xn, _state);
                 state->debugphase2flops = state->debugphase2flops+2*n*n;
                 if( ae_fp_greater_eq(fcand,fprev-noiselevel*noisetolerance) )
                 {
@@ -19327,9 +20098,9 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
             }
             
             /*
-             * Phase 3: Newton method.
+             * Phase 3: fast equality-constrained solver
              *
-             * NOTE: this phase uses Augmented Lagrangian algorithm to solve
+             * NOTE: this solver uses Augmented Lagrangian algorithm to solve
              *       equality-constrained subproblems. This algorithm may
              *       perform steps which increase function values instead of
              *       decreasing it (in hard cases, like overconstrained problems).
@@ -19387,7 +20158,6 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
                 break;
             }
         }
-        state->repouteriterationscount = 1;
         sasstopoptimization(&state->sas, _state);
         
         /*
@@ -19409,6 +20179,279 @@ void minqpoptimize(minqpstate* state, ae_state *_state)
         }
         return;
     }
+    
+    /*
+     * BLEIC solver
+     */
+    if( state->algokind==2 )
+    {
+        ae_assert(state->akind==0||state->akind==1, "MinQPOptimize: unexpected AKind", _state);
+        ivectorsetlengthatleast(&state->tmpi, state->nec+state->nic, _state);
+        rvectorsetlengthatleast(&state->tmp0, n, _state);
+        rvectorsetlengthatleast(&state->tmp1, n, _state);
+        for(i=0; i<=state->nec-1; i++)
+        {
+            state->tmpi.ptr.p_int[i] = 0;
+        }
+        for(i=0; i<=state->nic-1; i++)
+        {
+            state->tmpi.ptr.p_int[state->nec+i] = -1;
+        }
+        minbleicsetlc(&state->solver, &state->cleic, &state->tmpi, state->nec+state->nic, _state);
+        minbleicsetbc(&state->solver, &state->bndl, &state->bndu, _state);
+        minbleicsetdrep(&state->solver, ae_true, _state);
+        minbleicsetcond(&state->solver, ae_minrealnumber, 0.0, 0.0, state->bleicmaxits, _state);
+        minbleicsetscale(&state->solver, &state->s, _state);
+        minbleicsetprecscale(&state->solver, _state);
+        minbleicrestartfrom(&state->solver, &state->xs, _state);
+        state->repterminationtype = 0;
+        while(minbleiciteration(&state->solver, _state))
+        {
+            
+            /*
+             * Line search started
+             */
+            if( state->solver.lsstart )
+            {
+                
+                /*
+                 * Iteration counters:
+                 * * inner iterations count is increased on every line search
+                 * * outer iterations count is increased only at steepest descent line search
+                 */
+                inc(&state->repinneriterationscount, _state);
+                if( !state->solver.lbfgssearch )
+                {
+                    inc(&state->repouteriterationscount, _state);
+                }
+                
+                /*
+                 * Build quadratic model of F along descent direction:
+                 *     F(x+alpha*d) = D2*alpha^2 + D1*alpha + D0
+                 */
+                d0 = state->solver.f;
+                d1 = ae_v_dotproduct(&state->solver.d.ptr.p_double[0], 1, &state->solver.g.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                d2 = 0;
+                if( state->akind==0 )
+                {
+                    d2 = cqmxtadx2(&state->a, &state->solver.d, _state);
+                }
+                if( state->akind==1 )
+                {
+                    sparsesmv(&state->sparsea, state->sparseaupper, &state->solver.d, &state->tmp0, _state);
+                    d2 = 0.0;
+                    for(i=0; i<=n-1; i++)
+                    {
+                        d2 = d2+state->solver.d.ptr.p_double[i]*state->tmp0.ptr.p_double[i];
+                    }
+                    d2 = 0.5*d2;
+                }
+                
+                /*
+                 * Suggest new step
+                 */
+                if( ae_fp_less(d1,0)&&ae_fp_greater(d2,0) )
+                {
+                    state->solver.stp = safeminposrv(-d1, 2*d2, state->solver.curstpmax, _state);
+                }
+                
+                /*
+                 * This line search may be started from steepest descent
+                 * stage (stage 2) or from L-BFGS stage (stage 3) of the
+                 * BLEIC algorithm. Depending on stage type, different
+                 * checks are performed.
+                 *
+                 * Say, L-BFGS stage is an equality-constrained refinement
+                 * stage of BLEIC. This stage refines current iterate
+                 * under "frozen" equality constraints. We can terminate
+                 * iterations at this stage only when we encounter
+                 * unconstrained direction of negative curvature. In all
+                 * other cases (say, when constrained gradient is zero)
+                 * we should not terminate algorithm because everything may
+                 * change after de-activating presently active constraints.
+                 *
+                 * At steepest descent stage of BLEIC we can terminate algorithm
+                 * because it found minimum (steepest descent step is zero
+                 * or too short). We also perform check for direction of
+                 * negative curvature.
+                 */
+                if( (ae_fp_less(d2,0)||(ae_fp_eq(d2,0)&&ae_fp_less(d1,0)))&&!state->solver.boundedstep )
+                {
+                    
+                    /*
+                     * Function is unbounded from below:
+                     * * function will decrease along D, i.e. either:
+                     *   * D2<0
+                     *   * D2=0 and D1<0
+                     * * step is unconstrained
+                     *
+                     * If these conditions are true, we abnormally terminate QP
+                     * algorithm with return code -4 (we can do so at any stage
+                     * of BLEIC - whether it is L-BFGS or steepest descent one).
+                     */
+                    state->repterminationtype = -4;
+                    for(i=0; i<=n-1; i++)
+                    {
+                        state->xs.ptr.p_double[i] = state->solver.x.ptr.p_double[i];
+                    }
+                    break;
+                }
+                if( !state->solver.lbfgssearch&&ae_fp_greater_eq(d2,0) )
+                {
+                    
+                    /*
+                     * Tests for "normal" convergence.
+                     *
+                     * These tests are performed only at "steepest descent" stage
+                     * of the BLEIC algorithm, and only when function is non-concave
+                     * (D2>=0) along direction D.
+                     *
+                     * NOTE: we do not test iteration count (MaxIts) here, because
+                     *       this stopping condition is tested by BLEIC itself.
+                     */
+                    if( ae_fp_greater_eq(d1,0) )
+                    {
+                        
+                        /*
+                         * "Emergency" stopping condition: D is non-descent direction.
+                         * Sometimes it is possible because of numerical noise in the
+                         * target function.
+                         */
+                        state->repterminationtype = 4;
+                        for(i=0; i<=n-1; i++)
+                        {
+                            state->xs.ptr.p_double[i] = state->solver.x.ptr.p_double[i];
+                        }
+                        break;
+                    }
+                    if( ae_fp_greater(d2,0) )
+                    {
+                        
+                        /*
+                         * Stopping condition #4 - gradient norm is small:
+                         *
+                         * 1. rescale State.Solver.D and State.Solver.G according to
+                         *    current scaling, store results to Tmp0 and Tmp1.
+                         * 2. Normalize Tmp0 (scaled direction vector).
+                         * 3. compute directional derivative (in scaled variables),
+                         *    which is equal to DOTPRODUCT(Tmp0,Tmp1).
+                         */
+                        v = 0;
+                        for(i=0; i<=n-1; i++)
+                        {
+                            state->tmp0.ptr.p_double[i] = state->solver.d.ptr.p_double[i]/state->s.ptr.p_double[i];
+                            state->tmp1.ptr.p_double[i] = state->solver.g.ptr.p_double[i]*state->s.ptr.p_double[i];
+                            v = v+ae_sqr(state->tmp0.ptr.p_double[i], _state);
+                        }
+                        ae_assert(ae_fp_greater(v,0), "MinQPOptimize: inernal errror (scaled direction is zero)", _state);
+                        v = 1/ae_sqrt(v, _state);
+                        ae_v_muld(&state->tmp0.ptr.p_double[0], 1, ae_v_len(0,n-1), v);
+                        v = ae_v_dotproduct(&state->tmp0.ptr.p_double[0], 1, &state->tmp1.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                        if( ae_fp_less_eq(ae_fabs(v, _state),state->bleicepsg) )
+                        {
+                            state->repterminationtype = 4;
+                            for(i=0; i<=n-1; i++)
+                            {
+                                state->xs.ptr.p_double[i] = state->solver.x.ptr.p_double[i];
+                            }
+                            break;
+                        }
+                        
+                        /*
+                         * Stopping condition #1 - relative function improvement is small:
+                         *
+                         * 1. calculate steepest descent step:   V = -D1/(2*D2)
+                         * 2. calculate function change:         V1= D2*V^2 + D1*V
+                         * 3. stop if function change is small enough
+                         */
+                        v = -d1/(2*d2);
+                        v1 = d2*v*v+d1*v;
+                        if( ae_fp_less_eq(ae_fabs(v1, _state),state->bleicepsf*ae_maxreal(d0, 1.0, _state)) )
+                        {
+                            state->repterminationtype = 1;
+                            for(i=0; i<=n-1; i++)
+                            {
+                                state->xs.ptr.p_double[i] = state->solver.x.ptr.p_double[i];
+                            }
+                            break;
+                        }
+                        
+                        /*
+                         * Stopping condition #2 - scaled step is small:
+                         *
+                         * 1. calculate step multiplier V0 (step itself is D*V0)
+                         * 2. calculate scaled step length V
+                         * 3. stop if step is small enough
+                         */
+                        v0 = -d1/(2*d2);
+                        v = 0;
+                        for(i=0; i<=n-1; i++)
+                        {
+                            v = v+ae_sqr(v0*state->solver.d.ptr.p_double[i]/state->s.ptr.p_double[i], _state);
+                        }
+                        if( ae_fp_less_eq(ae_sqrt(v, _state),state->bleicepsx) )
+                        {
+                            state->repterminationtype = 2;
+                            for(i=0; i<=n-1; i++)
+                            {
+                                state->xs.ptr.p_double[i] = state->solver.x.ptr.p_double[i];
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            /*
+             * Gradient evaluation
+             */
+            if( state->solver.needfg )
+            {
+                for(i=0; i<=n-1; i++)
+                {
+                    state->tmp0.ptr.p_double[i] = state->solver.x.ptr.p_double[i]-state->xorigin.ptr.p_double[i];
+                }
+                if( state->akind==0 )
+                {
+                    cqmadx(&state->a, &state->tmp0, &state->tmp1, _state);
+                }
+                if( state->akind==1 )
+                {
+                    sparsesmv(&state->sparsea, state->sparseaupper, &state->tmp0, &state->tmp1, _state);
+                }
+                v0 = ae_v_dotproduct(&state->tmp0.ptr.p_double[0], 1, &state->tmp1.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                v1 = ae_v_dotproduct(&state->tmp0.ptr.p_double[0], 1, &state->b.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                state->solver.f = 0.5*v0+v1;
+                ae_v_move(&state->solver.g.ptr.p_double[0], 1, &state->tmp1.ptr.p_double[0], 1, ae_v_len(0,n-1));
+                ae_v_add(&state->solver.g.ptr.p_double[0], 1, &state->b.ptr.p_double[0], 1, ae_v_len(0,n-1));
+            }
+        }
+        if( state->repterminationtype==0 )
+        {
+            
+            /*
+             * BLEIC optimizer was terminated by one of its inner stopping
+             * conditions. Usually it is iteration counter (if such
+             * stopping condition was specified by user).
+             */
+            minbleicresults(&state->solver, &state->xs, &state->solverrep, _state);
+            state->repterminationtype = state->solverrep.terminationtype;
+        }
+        else
+        {
+            
+            /*
+             * BLEIC optimizer was terminated in "emergency" mode by QP
+             * solver.
+             *
+             * NOTE: such termination is "emergency" only when viewed from
+             *       BLEIC's position. QP solver sees such termination as
+             *       routine one, triggered by QP's stopping criteria.
+             */
+            minbleicemergencytermination(&state->solver, _state);
+        }
+        return;
+    }
 }
 
 
@@ -19419,11 +20462,35 @@ INPUT PARAMETERS:
     State   -   algorithm state
 
 OUTPUT PARAMETERS:
-    X       -   array[0..N-1], solution
+    X       -   array[0..N-1], solution.
+                This array is allocated and initialized only when
+                Rep.TerminationType parameter is positive (success).
     Rep     -   optimization report. You should check Rep.TerminationType,
                 which contains completion code, and you may check  another
                 fields which contain another information  about  algorithm
                 functioning.
+                
+                Failure codes returned by algorithm are:
+                * -5    inappropriate solver was used:
+                        * Cholesky solver for (semi)indefinite problems
+                        * Cholesky solver for problems with sparse matrix
+                * -4    BLEIC-QP algorithm found unconstrained direction
+                        of negative curvature (function is unbounded from
+                        below  even  under  constraints),  no  meaningful
+                        minimum can be found.
+                * -3    inconsistent constraints (or maybe  feasible point
+                        is too  hard  to  find).  If  you  are  sure  that
+                        constraints are feasible, try to restart optimizer
+                        with better initial approximation.
+                        
+                Completion codes specific for Cholesky algorithm:
+                *  4   successful completion
+                
+                Completion codes specific for BLEIC-based algorithm:
+                *  1   relative function improvement is no more than EpsF.
+                *  2   scaled step is no more than EpsX.
+                *  4   scaled gradient norm is no more than EpsG.
+                *  5   MaxIts steps was taken
 
   -- ALGLIB --
      Copyright 11.01.2011 by Bochkanov Sergey
@@ -19512,6 +20579,7 @@ void minqpsetquadratictermfast(minqpstate* state,
 
 
     n = state->n;
+    state->akind = 0;
     cqmseta(&state->a, a, isupper, 1.0, _state);
     if( ae_fp_greater(s,0) )
     {
@@ -19863,6 +20931,8 @@ ae_bool _minqpstate_init(void* _p, ae_state *_state, ae_bool make_automatic)
     ae_touch_ptr((void*)p);
     if( !_convexquadraticmodel_init(&p->a, _state, make_automatic) )
         return ae_false;
+    if( !_sparsematrix_init(&p->sparsea, _state, make_automatic) )
+        return ae_false;
     if( !ae_vector_init(&p->b, 0, DT_REAL, _state, make_automatic) )
         return ae_false;
     if( !ae_vector_init(&p->bndl, 0, DT_REAL, _state, make_automatic) )
@@ -19905,7 +20975,13 @@ ae_bool _minqpstate_init(void* _p, ae_state *_state, ae_bool make_automatic)
         return ae_false;
     if( !ae_vector_init(&p->rctmpg, 0, DT_REAL, _state, make_automatic) )
         return ae_false;
+    if( !ae_vector_init(&p->tmpi, 0, DT_INT, _state, make_automatic) )
+        return ae_false;
     if( !_normestimatorstate_init(&p->estimator, _state, make_automatic) )
+        return ae_false;
+    if( !_minbleicstate_init(&p->solver, _state, make_automatic) )
+        return ae_false;
+    if( !_minbleicreport_init(&p->solverrep, _state, make_automatic) )
         return ae_false;
     return ae_true;
 }
@@ -19917,8 +20993,12 @@ ae_bool _minqpstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool 
     minqpstate *src = (minqpstate*)_src;
     dst->n = src->n;
     dst->algokind = src->algokind;
+    dst->akind = src->akind;
     if( !_convexquadraticmodel_init_copy(&dst->a, &src->a, _state, make_automatic) )
         return ae_false;
+    if( !_sparsematrix_init_copy(&dst->sparsea, &src->sparsea, _state, make_automatic) )
+        return ae_false;
+    dst->sparseaupper = src->sparseaupper;
     dst->anorm = src->anorm;
     if( !ae_vector_init_copy(&dst->b, &src->b, _state, make_automatic) )
         return ae_false;
@@ -19941,6 +21021,10 @@ ae_bool _minqpstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool 
         return ae_false;
     dst->nec = src->nec;
     dst->nic = src->nic;
+    dst->bleicepsg = src->bleicepsg;
+    dst->bleicepsf = src->bleicepsf;
+    dst->bleicepsx = src->bleicepsx;
+    dst->bleicmaxits = src->bleicmaxits;
     if( !_sactiveset_init_copy(&dst->sas, &src->sas, _state, make_automatic) )
         return ae_false;
     if( !ae_vector_init_copy(&dst->gc, &src->gc, _state, make_automatic) )
@@ -19973,7 +21057,13 @@ ae_bool _minqpstate_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool 
         return ae_false;
     if( !ae_vector_init_copy(&dst->rctmpg, &src->rctmpg, _state, make_automatic) )
         return ae_false;
+    if( !ae_vector_init_copy(&dst->tmpi, &src->tmpi, _state, make_automatic) )
+        return ae_false;
     if( !_normestimatorstate_init_copy(&dst->estimator, &src->estimator, _state, make_automatic) )
+        return ae_false;
+    if( !_minbleicstate_init_copy(&dst->solver, &src->solver, _state, make_automatic) )
+        return ae_false;
+    if( !_minbleicreport_init_copy(&dst->solverrep, &src->solverrep, _state, make_automatic) )
         return ae_false;
     return ae_true;
 }
@@ -19984,6 +21074,7 @@ void _minqpstate_clear(void* _p)
     minqpstate *p = (minqpstate*)_p;
     ae_touch_ptr((void*)p);
     _convexquadraticmodel_clear(&p->a);
+    _sparsematrix_clear(&p->sparsea);
     ae_vector_clear(&p->b);
     ae_vector_clear(&p->bndl);
     ae_vector_clear(&p->bndu);
@@ -20005,7 +21096,10 @@ void _minqpstate_clear(void* _p)
     ae_vector_clear(&p->tmp1);
     ae_vector_clear(&p->tmpb);
     ae_vector_clear(&p->rctmpg);
+    ae_vector_clear(&p->tmpi);
     _normestimatorstate_clear(&p->estimator);
+    _minbleicstate_clear(&p->solver);
+    _minbleicreport_clear(&p->solverrep);
 }
 
 
@@ -20014,6 +21108,7 @@ void _minqpstate_destroy(void* _p)
     minqpstate *p = (minqpstate*)_p;
     ae_touch_ptr((void*)p);
     _convexquadraticmodel_destroy(&p->a);
+    _sparsematrix_destroy(&p->sparsea);
     ae_vector_destroy(&p->b);
     ae_vector_destroy(&p->bndl);
     ae_vector_destroy(&p->bndu);
@@ -20035,7 +21130,10 @@ void _minqpstate_destroy(void* _p)
     ae_vector_destroy(&p->tmp1);
     ae_vector_destroy(&p->tmpb);
     ae_vector_destroy(&p->rctmpg);
+    ae_vector_destroy(&p->tmpi);
     _normestimatorstate_destroy(&p->estimator);
+    _minbleicstate_destroy(&p->solver);
+    _minbleicreport_destroy(&p->solverrep);
 }
 
 
@@ -23935,39 +25033,6 @@ void _minasareport_clear(void* _p)
 void _minasareport_destroy(void* _p)
 {
     minasareport *p = (minasareport*)_p;
-    ae_touch_ptr((void*)p);
-}
-
-
-
-
-ae_bool _linfeassolver_init(void* _p, ae_state *_state, ae_bool make_automatic)
-{
-    linfeassolver *p = (linfeassolver*)_p;
-    ae_touch_ptr((void*)p);
-    return ae_true;
-}
-
-
-ae_bool _linfeassolver_init_copy(void* _dst, void* _src, ae_state *_state, ae_bool make_automatic)
-{
-    linfeassolver *dst = (linfeassolver*)_dst;
-    linfeassolver *src = (linfeassolver*)_src;
-    dst->debugflops = src->debugflops;
-    return ae_true;
-}
-
-
-void _linfeassolver_clear(void* _p)
-{
-    linfeassolver *p = (linfeassolver*)_p;
-    ae_touch_ptr((void*)p);
-}
-
-
-void _linfeassolver_destroy(void* _p)
-{
-    linfeassolver *p = (linfeassolver*)_p;
     ae_touch_ptr((void*)p);
 }
 

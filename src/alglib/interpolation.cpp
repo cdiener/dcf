@@ -2962,7 +2962,7 @@ INPUT PARAMETERS:
     X           -   spline nodes, array[0..N-1]
     Y           -   function values, array[0..N-1]
     N           -   points count (optional):
-                    * N>=5
+                    * N>=2
                     * if given, only first N points are used to build spline
                     * if not given, automatically detected from X/Y sizes
                       (len(X) must be equal to len(Y))
@@ -3001,7 +3001,7 @@ INPUT PARAMETERS:
     X           -   spline nodes, array[0..N-1]
     Y           -   function values, array[0..N-1]
     N           -   points count (optional):
-                    * N>=5
+                    * N>=2
                     * if given, only first N points are used to build spline
                     * if not given, automatically detected from X/Y sizes
                       (len(X) must be equal to len(Y))
@@ -4158,36 +4158,62 @@ void barycentricfitfloaterhormann(const real_1d_array &x, const real_1d_array &y
 }
 
 /*************************************************************************
-Rational least squares fitting using  Floater-Hormann  rational  functions
-with optimal D chosen from [0,9].
+Fitting by penalized cubic spline.
 
-Equidistant  grid  with M node on [min(x),max(x)]  is  used to build basis
-functions. Different values of D are tried, optimal  D  (least  root  mean
-square error) is chosen.  Task  is  linear, so linear least squares solver
-is used. Complexity  of  this  computational  scheme is  O(N*M^2)  (mostly
-dominated by the least squares solver).
+Equidistant grid with M nodes on [min(x,xc),max(x,xc)] is  used  to  build
+basis functions. Basis functions are cubic splines with  natural  boundary
+conditions. Problem is regularized by  adding non-linearity penalty to the
+usual least squares penalty function:
+
+    S(x) = arg min { LS + P }, where
+    LS   = SUM { w[i]^2*(y[i] - S(x[i]))^2 } - least squares penalty
+    P    = C*10^rho*integral{ S''(x)^2*dx } - non-linearity penalty
+    rho  - tunable constant given by user
+    C    - automatically determined scale parameter,
+           makes penalty invariant with respect to scaling of X, Y, W.
 
 INPUT PARAMETERS:
     X   -   points, array[0..N-1].
     Y   -   function values, array[0..N-1].
-    N   -   number of points, N>0.
-    M   -   number of basis functions ( = number_of_nodes), M>=2.
+    N   -   number of points (optional):
+            * N>0
+            * if given, only first N elements of X/Y are processed
+            * if not given, automatically determined from X/Y sizes
+    M   -   number of basis functions ( = number_of_nodes), M>=4.
+    Rho -   regularization  constant  passed   by   user.   It   penalizes
+            nonlinearity in the regression spline. It  is  logarithmically
+            scaled,  i.e.  actual  value  of  regularization  constant  is
+            calculated as 10^Rho. It is automatically scaled so that:
+            * Rho=2.0 corresponds to moderate amount of nonlinearity
+            * generally, it should be somewhere in the [-8.0,+8.0]
+            If you do not want to penalize nonlineary,
+            pass small Rho. Values as low as -15 should work.
 
 OUTPUT PARAMETERS:
     Info-   same format as in LSFitLinearWC() subroutine.
             * Info>0    task is solved
             * Info<=0   an error occured:
-                        -4 means inconvergence of internal SVD
-                        -3 means inconsistent constraints
-    B   -   barycentric interpolant.
-    Rep -   report, same format as in LSFitLinearWC() subroutine.
-            Following fields are set:
-            * DBest         best value of the D parameter
+                        -4 means inconvergence of internal SVD or
+                           Cholesky decomposition; problem may be
+                           too ill-conditioned (very rare)
+    S   -   spline interpolant.
+    Rep -   Following fields are set:
             * RMSError      rms error on the (X,Y).
             * AvgError      average error on the (X,Y).
             * AvgRelError   average relative error on the non-zero Y
             * MaxError      maximum error
                             NON-WEIGHTED ERRORS ARE CALCULATED
+
+IMPORTANT:
+    this subroitine doesn't calculate task's condition number for K<>0.
+
+NOTE 1: additional nodes are added to the spline outside  of  the  fitting
+interval to force linearity when x<min(x,xc) or x>max(x,xc).  It  is  done
+for consistency - we penalize non-linearity  at [min(x,xc),max(x,xc)],  so
+it is natural to force linearity outside of this interval.
+
+NOTE 2: function automatically sorts points,  so  caller may pass unsorted
+array.
 
   -- ALGLIB PROJECT --
      Copyright 18.08.2009 by Bochkanov Sergey
@@ -4209,36 +4235,62 @@ void spline1dfitpenalized(const real_1d_array &x, const real_1d_array &y, const 
 }
 
 /*************************************************************************
-Rational least squares fitting using  Floater-Hormann  rational  functions
-with optimal D chosen from [0,9].
+Fitting by penalized cubic spline.
 
-Equidistant  grid  with M node on [min(x),max(x)]  is  used to build basis
-functions. Different values of D are tried, optimal  D  (least  root  mean
-square error) is chosen.  Task  is  linear, so linear least squares solver
-is used. Complexity  of  this  computational  scheme is  O(N*M^2)  (mostly
-dominated by the least squares solver).
+Equidistant grid with M nodes on [min(x,xc),max(x,xc)] is  used  to  build
+basis functions. Basis functions are cubic splines with  natural  boundary
+conditions. Problem is regularized by  adding non-linearity penalty to the
+usual least squares penalty function:
+
+    S(x) = arg min { LS + P }, where
+    LS   = SUM { w[i]^2*(y[i] - S(x[i]))^2 } - least squares penalty
+    P    = C*10^rho*integral{ S''(x)^2*dx } - non-linearity penalty
+    rho  - tunable constant given by user
+    C    - automatically determined scale parameter,
+           makes penalty invariant with respect to scaling of X, Y, W.
 
 INPUT PARAMETERS:
     X   -   points, array[0..N-1].
     Y   -   function values, array[0..N-1].
-    N   -   number of points, N>0.
-    M   -   number of basis functions ( = number_of_nodes), M>=2.
+    N   -   number of points (optional):
+            * N>0
+            * if given, only first N elements of X/Y are processed
+            * if not given, automatically determined from X/Y sizes
+    M   -   number of basis functions ( = number_of_nodes), M>=4.
+    Rho -   regularization  constant  passed   by   user.   It   penalizes
+            nonlinearity in the regression spline. It  is  logarithmically
+            scaled,  i.e.  actual  value  of  regularization  constant  is
+            calculated as 10^Rho. It is automatically scaled so that:
+            * Rho=2.0 corresponds to moderate amount of nonlinearity
+            * generally, it should be somewhere in the [-8.0,+8.0]
+            If you do not want to penalize nonlineary,
+            pass small Rho. Values as low as -15 should work.
 
 OUTPUT PARAMETERS:
     Info-   same format as in LSFitLinearWC() subroutine.
             * Info>0    task is solved
             * Info<=0   an error occured:
-                        -4 means inconvergence of internal SVD
-                        -3 means inconsistent constraints
-    B   -   barycentric interpolant.
-    Rep -   report, same format as in LSFitLinearWC() subroutine.
-            Following fields are set:
-            * DBest         best value of the D parameter
+                        -4 means inconvergence of internal SVD or
+                           Cholesky decomposition; problem may be
+                           too ill-conditioned (very rare)
+    S   -   spline interpolant.
+    Rep -   Following fields are set:
             * RMSError      rms error on the (X,Y).
             * AvgError      average error on the (X,Y).
             * AvgRelError   average relative error on the non-zero Y
             * MaxError      maximum error
                             NON-WEIGHTED ERRORS ARE CALCULATED
+
+IMPORTANT:
+    this subroitine doesn't calculate task's condition number for K<>0.
+
+NOTE 1: additional nodes are added to the spline outside  of  the  fitting
+interval to force linearity when x<min(x,xc) or x>max(x,xc).  It  is  done
+for consistency - we penalize non-linearity  at [min(x,xc),max(x,xc)],  so
+it is natural to force linearity outside of this interval.
+
+NOTE 2: function automatically sorts points,  so  caller may pass unsorted
+array.
 
   -- ALGLIB PROJECT --
      Copyright 18.08.2009 by Bochkanov Sergey
@@ -5044,6 +5096,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     W       -   array[0..N-1]  Weights  corresponding to function  values.
@@ -5103,6 +5161,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -5130,6 +5192,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     W       -   array[0..N-1]  Weights  corresponding to function  values.
@@ -5189,6 +5257,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -5224,6 +5296,12 @@ that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then LSFitLinearW()
 is called.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     W       -   array[0..N-1]  Weights  corresponding to function  values.
@@ -5298,6 +5376,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -5326,6 +5408,12 @@ that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then LSFitLinearW()
 is called.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     W       -   array[0..N-1]  Weights  corresponding to function  values.
@@ -5400,6 +5488,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -5438,6 +5530,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     FMatrix -   a table of basis functions values, array[0..N-1, 0..M-1].
@@ -5492,6 +5590,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -5519,6 +5621,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     FMatrix -   a table of basis functions values, array[0..N-1, 0..M-1].
@@ -5573,6 +5681,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -5608,6 +5720,12 @@ that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then  LSFitLinear()
 is called.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     FMatrix -   a table of basis functions values, array[0..N-1, 0..M-1].
@@ -5678,6 +5796,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -5706,6 +5828,12 @@ that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then  LSFitLinear()
 is called.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     FMatrix -   a table of basis functions values, array[0..N-1, 0..M-1].
@@ -5776,6 +5904,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -6910,6 +7042,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -10073,7 +10209,6 @@ double idwcalc(idwinterpolant* z,
      /* Real    */ ae_vector* x,
      ae_state *_state)
 {
-    ae_int_t nx;
     ae_int_t i;
     ae_int_t k;
     double r;
@@ -10102,7 +10237,6 @@ double idwcalc(idwinterpolant* z,
         /*
          * NQ/NW-based model
          */
-        nx = z->nx;
         k = kdtreequeryknn(&z->tree, x, z->nw, ae_true, _state);
         kdtreequeryresultsdistances(&z->tree, &z->rbuf, _state);
         kdtreequeryresultstags(&z->tree, &z->tbuf, _state);
@@ -10113,7 +10247,6 @@ double idwcalc(idwinterpolant* z,
         /*
          * R-based model
          */
-        nx = z->nx;
         k = kdtreequeryrnn(&z->tree, x, z->r, ae_true, _state);
         kdtreequeryresultsdistances(&z->tree, &z->rbuf, _state);
         kdtreequeryresultstags(&z->tree, &z->tbuf, _state);
@@ -13932,8 +14065,6 @@ void spline1dgriddiff2cubic(/* Real    */ ae_vector* x,
     double delta;
     double delta2;
     double delta3;
-    double s0;
-    double s1;
     double s2;
     double s3;
 
@@ -14015,8 +14146,6 @@ void spline1dgriddiff2cubic(/* Real    */ ae_vector* x,
         delta = x->ptr.p_double[i+1]-x->ptr.p_double[i];
         delta2 = ae_sqr(delta, _state);
         delta3 = delta*delta2;
-        s0 = y->ptr.p_double[i];
-        s1 = d1->ptr.p_double[i];
         s2 = (3*(y->ptr.p_double[i+1]-y->ptr.p_double[i])-2*d1->ptr.p_double[i]*delta-d1->ptr.p_double[i+1]*delta)/delta2;
         s3 = (2*(y->ptr.p_double[i]-y->ptr.p_double[i+1])+d1->ptr.p_double[i]*delta+d1->ptr.p_double[i+1]*delta)/delta3;
         d2->ptr.p_double[i] = 2*s2;
@@ -14898,7 +15027,7 @@ INPUT PARAMETERS:
     X           -   spline nodes, array[0..N-1]
     Y           -   function values, array[0..N-1]
     N           -   points count (optional):
-                    * N>=5
+                    * N>=2
                     * if given, only first N points are used to build spline
                     * if not given, automatically detected from X/Y sizes
                       (len(X) must be equal to len(Y))
@@ -14938,7 +15067,7 @@ void spline1dbuildakima(/* Real    */ ae_vector* x,
     ae_vector_init(&w, 0, DT_REAL, _state, ae_true);
     ae_vector_init(&diff, 0, DT_REAL, _state, ae_true);
 
-    ae_assert(n>=5, "Spline1DBuildAkima: N<5!", _state);
+    ae_assert(n>=2, "Spline1DBuildAkima: N<2!", _state);
     ae_assert(x->cnt>=n, "Spline1DBuildAkima: Length(X)<N!", _state);
     ae_assert(y->cnt>=n, "Spline1DBuildAkima: Length(Y)<N!", _state);
     
@@ -14949,6 +15078,16 @@ void spline1dbuildakima(/* Real    */ ae_vector* x,
     ae_assert(isfinitevector(y, n, _state), "Spline1DBuildAkima: Y contains infinite or NAN values!", _state);
     spline1d_heapsortpoints(x, y, n, _state);
     ae_assert(aredistinct(x, n, _state), "Spline1DBuildAkima: at least two consequent points are too close!", _state);
+    
+    /*
+     * Handle special cases: N=2, N=3, N=4
+     */
+    if( n<=4 )
+    {
+        spline1dbuildcubic(x, y, n, 0, 0.0, 0, 0.0, c, _state);
+        ae_frame_leave(_state);
+        return;
+    }
     
     /*
      * Prepare W (weights), Diff (divided differences)
@@ -18453,36 +18592,62 @@ void barycentricfitfloaterhormann(/* Real    */ ae_vector* x,
 
 
 /*************************************************************************
-Rational least squares fitting using  Floater-Hormann  rational  functions
-with optimal D chosen from [0,9].
+Fitting by penalized cubic spline.
 
-Equidistant  grid  with M node on [min(x),max(x)]  is  used to build basis
-functions. Different values of D are tried, optimal  D  (least  root  mean
-square error) is chosen.  Task  is  linear, so linear least squares solver
-is used. Complexity  of  this  computational  scheme is  O(N*M^2)  (mostly
-dominated by the least squares solver).
+Equidistant grid with M nodes on [min(x,xc),max(x,xc)] is  used  to  build
+basis functions. Basis functions are cubic splines with  natural  boundary
+conditions. Problem is regularized by  adding non-linearity penalty to the
+usual least squares penalty function:
+
+    S(x) = arg min { LS + P }, where
+    LS   = SUM { w[i]^2*(y[i] - S(x[i]))^2 } - least squares penalty
+    P    = C*10^rho*integral{ S''(x)^2*dx } - non-linearity penalty
+    rho  - tunable constant given by user
+    C    - automatically determined scale parameter,
+           makes penalty invariant with respect to scaling of X, Y, W.
 
 INPUT PARAMETERS:
     X   -   points, array[0..N-1].
     Y   -   function values, array[0..N-1].
-    N   -   number of points, N>0.
-    M   -   number of basis functions ( = number_of_nodes), M>=2.
+    N   -   number of points (optional):
+            * N>0
+            * if given, only first N elements of X/Y are processed
+            * if not given, automatically determined from X/Y sizes
+    M   -   number of basis functions ( = number_of_nodes), M>=4.
+    Rho -   regularization  constant  passed   by   user.   It   penalizes
+            nonlinearity in the regression spline. It  is  logarithmically
+            scaled,  i.e.  actual  value  of  regularization  constant  is
+            calculated as 10^Rho. It is automatically scaled so that:
+            * Rho=2.0 corresponds to moderate amount of nonlinearity
+            * generally, it should be somewhere in the [-8.0,+8.0]
+            If you do not want to penalize nonlineary,
+            pass small Rho. Values as low as -15 should work.
 
 OUTPUT PARAMETERS:
     Info-   same format as in LSFitLinearWC() subroutine.
             * Info>0    task is solved
             * Info<=0   an error occured:
-                        -4 means inconvergence of internal SVD
-                        -3 means inconsistent constraints
-    B   -   barycentric interpolant.
-    Rep -   report, same format as in LSFitLinearWC() subroutine.
-            Following fields are set:
-            * DBest         best value of the D parameter
+                        -4 means inconvergence of internal SVD or
+                           Cholesky decomposition; problem may be
+                           too ill-conditioned (very rare)
+    S   -   spline interpolant.
+    Rep -   Following fields are set:
             * RMSError      rms error on the (X,Y).
             * AvgError      average error on the (X,Y).
             * AvgRelError   average relative error on the non-zero Y
             * MaxError      maximum error
                             NON-WEIGHTED ERRORS ARE CALCULATED
+
+IMPORTANT:
+    this subroitine doesn't calculate task's condition number for K<>0.
+
+NOTE 1: additional nodes are added to the spline outside  of  the  fitting
+interval to force linearity when x<min(x,xc) or x>max(x,xc).  It  is  done
+for consistency - we penalize non-linearity  at [min(x,xc),max(x,xc)],  so
+it is natural to force linearity outside of this interval.
+
+NOTE 2: function automatically sorts points,  so  caller may pass unsorted
+array.
 
   -- ALGLIB PROJECT --
      Copyright 18.08.2009 by Bochkanov Sergey
@@ -19315,6 +19480,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     W       -   array[0..N-1]  Weights  corresponding to function  values.
@@ -19374,6 +19545,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+            
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
                                     
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -19413,6 +19588,12 @@ This  is  variation  of LSFitLinearW(), which searchs for min|A*x=b| given
 that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then LSFitLinearW()
 is called.
+
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
 
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
@@ -19488,6 +19669,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+            
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -19644,6 +19829,12 @@ QR decomposition is used to reduce task to MxM, then triangular solver  or
 SVD-based solver is used depending on condition number of the  system.  It
 allows to maximize speed and retain decent accuracy.
 
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
+
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
     FMatrix -   a table of basis functions values, array[0..N-1, 0..M-1].
@@ -19698,6 +19889,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+            
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -19745,6 +19940,12 @@ This  is  variation  of LSFitLinear(),  which searchs for min|A*x=b| given
 that  K  additional  constaints  C*x=bc are satisfied. It reduces original
 task to modified one: min|B*y-d| WITHOUT constraints,  then  LSFitLinear()
 is called.
+
+IMPORTANT: if you want to perform  polynomial  fitting,  it  may  be  more
+           convenient to use PolynomialFit() function. This function gives
+           best  results  on  polynomial  problems  and  solves  numerical
+           stability  issues  which  arise  when   you   fit   high-degree
+           polynomials to your data.
 
 INPUT PARAMETERS:
     Y       -   array[0..N-1] Function values in  N  points.
@@ -19816,6 +20017,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+            
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 07.09.2009 by Bochkanov Sergey
@@ -21460,6 +21665,10 @@ NOTE:       we apply small amount of regularization when we invert squared
             all practical purposes except for the situation when you  want
             to compare ALGLIB results with "reference"  implementation  up
             to the last significant digit.
+            
+NOTE:       covariance matrix is estimated using  correction  for  degrees
+            of freedom (covariances are divided by N-M instead of dividing
+            by N).
 
   -- ALGLIB --
      Copyright 17.08.2009 by Bochkanov Sergey
@@ -23052,7 +23261,17 @@ INPUT PARAMETERS:
     X   -   array[0..K-1]:
             * for linear and nonlinear problems - current solution
     S   -   array[0..K-1]:
-            * for linear and nonlinear problems - scales of variables
+            * its components should be strictly positive
+            * squared inverse of this diagonal matrix is used as damping
+              factor for covariance matrix (linear and nonlinear problems)
+            * for nonlinear problems, when scale of the variables is usually
+              explicitly given by user, you may use scale vector for this
+              parameter
+            * for linear problems you may set this parameter to
+              S=sqrt(1/diag(F'*F))
+            * this parameter is automatically rescaled by this function,
+              only relative magnitudes of its components (with respect to
+              each other) matter.
     N   -   number of points, N>0.
     K   -   number of dimensions
     Rep -   structure which is used to store results
@@ -23122,6 +23341,7 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
      ae_state *_state)
 {
     ae_frame _frame_block;
+    ae_vector _s;
     ae_int_t i;
     ae_int_t j;
     ae_int_t j1;
@@ -23133,8 +23353,12 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
     double avg;
     double rss;
     double tss;
+    double sz;
+    double ss;
 
     ae_frame_make(_state, &_frame_block);
+    ae_vector_init_copy(&_s, s, _state, ae_true);
+    s = &_s;
     _matinvreport_init(&invrep, _state, ae_true);
 
     
@@ -23176,7 +23400,14 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
                 tss = tss+ae_sqr(y->ptr.p_double[i]-avg, _state);
             }
         }
-        rep->r2 = 1.0-rss/tss;
+        if( ae_fp_neq(tss,0) )
+        {
+            rep->r2 = ae_maxreal(1.0-rss/tss, 0.0, _state);
+        }
+        else
+        {
+            rep->r2 = 1.0;
+        }
     }
     else
     {
@@ -23188,7 +23419,7 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
      *     NoiseC = mean(per-point-noise*per-point-weight)
      * Noise level (standard deviation) at each point is equal to NoiseC/W[I].
      */
-    if( nzcnt>=k )
+    if( nzcnt>k )
     {
         noisec = 0.0;
         for(i=0; i<=n-1; i++)
@@ -23200,7 +23431,7 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
                 noisec = noisec+ae_sqr((v-y->ptr.p_double[i])*w->ptr.p_double[i], _state);
             }
         }
-        noisec = ae_sqrt(noisec/(nzcnt-k+1), _state);
+        noisec = ae_sqrt(noisec/(nzcnt-k), _state);
     }
     else
     {
@@ -23238,13 +23469,47 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
                 v = w->ptr.p_double[i]/noisec;
                 ae_v_moved(&z->ptr.pp_double[i][0], 1, &f1->ptr.pp_double[i][0], 1, ae_v_len(0,k-1), v);
             }
+            
+            /*
+             * Convert S to automatically scaled damped matrix:
+             * * calculate SZ - sum of diagonal elements of Z'*Z
+             * * calculate SS - sum of diagonal elements of S^(-2)
+             * * overwrite S by (SZ/SS)*S^(-2)
+             * * now S has approximately same magnitude as giagonal of Z'*Z
+             */
+            sz = 0;
+            for(i=0; i<=n-1; i++)
+            {
+                for(j=0; j<=k-1; j++)
+                {
+                    sz = sz+z->ptr.pp_double[i][j]*z->ptr.pp_double[i][j];
+                }
+            }
+            if( ae_fp_eq(sz,0) )
+            {
+                sz = 1;
+            }
+            ss = 0;
+            for(j=0; j<=k-1; j++)
+            {
+                ss = ss+1/ae_sqr(s->ptr.p_double[j], _state);
+            }
+            for(j=0; j<=k-1; j++)
+            {
+                s->ptr.p_double[j] = sz/ss/ae_sqr(s->ptr.p_double[j], _state);
+            }
+            
+            /*
+             * Calculate damped inverse inv(Z'*Z+S).
+             * We increase damping factor V until Z'*Z become well-conditioned.
+             */
             v = 1.0E3*ae_machineepsilon;
             do
             {
                 rmatrixsyrk(k, n, 1.0, z, 0, 0, 2, 0.0, &rep->covpar, 0, 0, ae_true, _state);
                 for(i=0; i<=k-1; i++)
                 {
-                    rep->covpar.ptr.pp_double[i][i] = rep->covpar.ptr.pp_double[i][i]+v/ae_sqr(s->ptr.p_double[i], _state);
+                    rep->covpar.ptr.pp_double[i][i] = rep->covpar.ptr.pp_double[i][i]+v*s->ptr.p_double[i];
                 }
                 spdmatrixinverse(&rep->covpar, k, ae_true, &info, &invrep, _state);
                 v = 10*v;
@@ -23270,6 +23535,35 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
              *   its Cholesky decomposition. It allow us to avoid time-consuming calculation
              *   of J'*N'*N*J in CovPar - complexity is reduced from O(N*K^2) to O(K^3), which
              *   is quite good because K is usually orders of magnitude smaller than N.
+             *
+             * First, convert S to automatically scaled damped matrix:
+             * * calculate SZ - sum of magnitudes of diagonal elements of Z/NoiseC
+             * * calculate SS - sum of diagonal elements of S^(-1)
+             * * overwrite S by (SZ/SS)*S^(-1)
+             * * now S has approximately same magnitude as giagonal of Z'*Z
+             */
+            sz = 0;
+            for(j=0; j<=k-1; j++)
+            {
+                sz = sz+ae_fabs(z->ptr.pp_double[j][j]/noisec, _state);
+            }
+            if( ae_fp_eq(sz,0) )
+            {
+                sz = 1;
+            }
+            ss = 0;
+            for(j=0; j<=k-1; j++)
+            {
+                ss = ss+1/s->ptr.p_double[j];
+            }
+            for(j=0; j<=k-1; j++)
+            {
+                s->ptr.p_double[j] = sz/ss/s->ptr.p_double[j];
+            }
+            
+            /*
+             * Calculate damped inverse of inv((Z+v*S)'*(Z+v*S))
+             * We increase damping factor V until matrix become well-conditioned.
              */
             v = 1.0E3*ae_machineepsilon;
             do
@@ -23280,7 +23574,7 @@ static void lsfit_estimateerrors(/* Real    */ ae_matrix* f1,
                     {
                         rep->covpar.ptr.pp_double[i][j] = z->ptr.pp_double[i][j]/noisec;
                     }
-                    rep->covpar.ptr.pp_double[i][i] = rep->covpar.ptr.pp_double[i][i]+v/ae_sqr(s->ptr.p_double[i], _state);
+                    rep->covpar.ptr.pp_double[i][i] = rep->covpar.ptr.pp_double[i][i]+v*s->ptr.p_double[i];
                 }
                 spdmatrixcholeskyinverse(&rep->covpar, k, ae_true, &info, &invrep, _state);
                 v = 10*v;
