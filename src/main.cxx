@@ -176,7 +176,7 @@ int main (int argc, char* argv[])
 	start = omp_get_wtime();
 
 	vector<string> seqs = read_seq(seq_path);
-	sann opt(dfs, seqs, n_iter, n_linker, 100, NTREE);
+	sann opt(dfs, seqs, n_iter, n_linker, 100, 64);
 	cout<<"Initial solution:"<<endl<<opt<<endl;
 	
 	
@@ -194,11 +194,13 @@ int main (int argc, char* argv[])
 	}
 	
 	#ifdef CURSES_HAVE_CURSES_H
-	initscr();
-	noecho();
-	nocbreak();
-	curs_set(0);
-	refresh();
+	int curses_success = opt.init_curses();
+	if(!curses_success)
+	{ 
+		cout<<"Terminal window too small for nice output - using fallback..."<<endl; 
+		cout.flush();
+		opt.end_curses();
+	} 
 	
 	for(unsigned int i=0; i<n_iter; i++)
 	{
@@ -206,13 +208,20 @@ int main (int argc, char* argv[])
 		
 		if( (i+1)%50==0 )
 		{ 
-			opt.get_curses();
+			if(curses_success) opt.update_curses();
+			else
+			{
+				cout<<"        \r";
+				cout<<opt;
+				cout.flush();
+			}
+				
 		}
 		
 		if(E_LOG)
 			elog<<i+1<<'\t'<<(i+1)*100<<'\t'<<opt.get_accepted()<<'\t'<<opt.current_energy()<<'\t'<<opt.get_best_energy()<<endl;
 	}
-	endwin();
+	if(curses_success) opt.end_curses();
 	#else
 	for(unsigned int i=0; i<n_iter; i++)
 	{

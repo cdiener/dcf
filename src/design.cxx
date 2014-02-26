@@ -360,65 +360,6 @@ std::string sann::sub_to_string()
 	return out.str();
 }
 
-#ifdef CURSES_HAVE_CURSES_H
-void sann::get_curses()
-{
-	int rows, cols, lower, upper, left, right, nbin;
-	nbin = (E_up-E_low)/step;
-	getmaxyx(stdscr, rows, cols);
-	lower = std::min(rows-10, 16);
-	upper = 5;
-	left = 5;
-	right = std::min(cols-left, nbin+left);
-	clear();
-	refresh();
-	
-	int max_hist=0;
-	for(unsigned int i=0; i<nbin; i++) if(hist[i]>max_hist) max_hist = hist[i];
-	
-	mvaddch(0, left, ACS_DIAMOND);
-	mvprintw(0, left+1, "Iteration #%d (%d configurations tested, %d accepted)", iter, iter*n_candidates, accepted);
-	double scale = 1.0/n_candidates + (1.0 - 2.0/n_candidates)*iter/iter_max; 
-	scale = ( log(scale*n_candidates) - log(1.0-scale) )/E_c;
-	mvprintw(1, left+1, "Energy scaling: %g, ELP influence: %d%%", scale, (int)round(ELP*100.0));
-	mvprintw(3, left, "ELP histogram");
-	
-	mvaddch(upper, left, ACS_UARROW);
-	mvaddstr(upper, left-2, "E");
-	for(unsigned int i=upper+1; i<lower; i++) mvaddch(i, left, ACS_VLINE);
-	mvaddch(lower,left, ACS_LLCORNER);
-	mvaddstr(lower+1, left, "0");
-	mvaddstr(lower+1, right, "1");
-	for(unsigned int i=left+1; i<right; i++) mvaddch(lower, i, ACS_HLINE);
-	mvaddch(lower, right, ACS_RARROW);
-	
-	double w = right-left;
-	double h = lower-upper;
-	
-	for(unsigned int i=h; i>0; i--)
-	{
-		for(unsigned int j=0; j<nbin; j++)
-		{
-			if( hist[j]>=i*max_hist/(double)h ) mvaddch(lower-i, left+1+j/(double)nbin*w, (char)254);
-		}
-	}	
-	
-	std::ostringstream out;
-	out<<"Modifications: ";
-	for(unsigned int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<100.0*link_idx[i]/accepted<<"%% ";
-	out<<std::endl<<"\t\t(";
-	out<<100.0*action_idx[0]/accepted<<"%% additions, ";
-	out<<100.0*action_idx[1]/accepted<<"%% changes, ";
-	out<<100.0*action_idx[2]/accepted<<"%% deletions";
-	out<<")";
-	std::string tmp_str = out.str(); 
-	mvprintw(lower+3, left, tmp_str.c_str() );
-	mvprintw(lower+6, left, "E: %g (best: %g)", current.energy, best_energy);
-	
-	refresh();
-}
-#endif
-
 std::string sann::get_state()
 {
 	
@@ -637,3 +578,186 @@ void sann::anneal()
 	iter++;
 	
 }
+
+// Curses implementation
+
+#ifdef CURSES_HAVE_CURSES_H
+
+int sann::init_curses()
+{
+	initscr();
+	noecho();
+	nocbreak();
+	curs_set(0);
+	refresh();
+	
+	int rows, cols, lower, upper, left, right, w, h;
+	getmaxyx(stdscr, rows, cols);
+	lower = std::min(rows-10, 16);
+	upper = 5;
+	left = 5;
+	right = std::min(cols-left, n_bins+left);
+	
+	for(unsigned int i=0; i<3; i++) curses_wins[i] == nullptr;
+	
+	// We can fit at least the two graphs
+	if(rows>=20 && cols>=42)
+	{
+		// Set up ELP window
+		int w_ELP = std::min(n_bins+4, cols-28);
+		curses_wins[0] = newwin(14, w_ELP, 1, 1);
+		box(curses_wins[0], 0, 0);
+		
+		// Set up P(CPP) window
+		curses_wins[1] = newwin(14, cols-w_ELP-3, 1, w_ELP+2);
+		box(curses_wins[1], 0, 0);
+		
+		getmaxyx(curses_wins[1], rows, cols);
+		left = 8;
+		right = cols-3;
+		lower = 11; 
+		upper = 2;
+		w = right-left;
+		h = lower-upper;
+		
+		// Draw coordinate system only once
+		mvwaddstr(curses_wins[1], 0, 1, "P(CPP) history");
+		for(unsigned int i=upper+1; i<lower; i++) mvwaddch(curses_wins[1], i, left, ACS_VLINE);
+		mvwaddch(curses_wins[1], upper, left, ACS_UARROW);
+		mvwaddstr(curses_wins[1], upper, left-1, "1");
+		mvwaddstr(curses_wins[1], (lower+upper)/2, left-7, "P(CPP)");
+		mvwaddch(curses_wins[1], lower,left, ACS_LLCORNER);
+		for(unsigned int i=left+1; i<right; i++) mvwaddch(curses_wins[1], lower, i, ACS_HLINE);
+		mvwaddch(curses_wins[1], lower, right, ACS_RARROW);
+		mvwaddstr(curses_wins[1], lower+1, left, "0");
+		mvwprintw(curses_wins[1], lower+1, right-4, "%d", iter_max);
+		mvwaddstr(curses_wins[1], lower+1, (right+left)/2-2, "iter");
+	}
+	else return 0;
+	// We can fit the status bar as well
+	getmaxyx(stdscr, rows, cols);
+	if(rows>=35 && cols>=60)
+	{
+		curses_wins[2] = newwin(11, cols-2, 15,1);
+		box(curses_wins[2], 0 ,0);
+	}
+	
+	return 1;
+}
+
+void sann::update_curses()
+{
+	int rows, cols, lower, upper, left, right, w, h, max_hist;
+	refresh();
+	
+	// --- Draw ELP histogram -- //
+	if( curses_wins[0] != nullptr )
+	{
+		wclear(curses_wins[0]);
+		box(curses_wins[0], 0, 0);
+		getmaxyx(curses_wins[0], rows, cols);
+		left = 4;
+		right = cols-3;
+		lower = 11; 
+		upper = 2;
+		w = right-left;
+		h = lower-upper;
+		
+		max_hist = 0;
+		for(unsigned int i=0; i<n_bins; i++) if(hist[i]>max_hist) max_hist = hist[i];
+		
+		mvwaddstr(curses_wins[0], 0, 1, "ELP histogram");
+		mvwaddch(curses_wins[0], upper, left, ACS_UARROW);
+		mvwaddch(curses_wins[0], upper, left-2, 'E');
+		for(unsigned int i=upper+1; i<lower; i++) mvwaddch(curses_wins[0], i, left, ACS_VLINE);
+		mvwaddch(curses_wins[0], lower, left, ACS_LLCORNER);
+		mvwaddstr(curses_wins[0], lower+1, left, "0");
+		mvwaddstr(curses_wins[0], lower+1, right, "1");
+		for(unsigned int i=left+1; i<right; i++) mvwaddch(curses_wins[0], lower, i, ACS_HLINE);
+		mvwaddch(curses_wins[0], lower, right, ACS_RARROW);
+		
+		for(unsigned int i=h; i>0; i--)
+		{
+			for(unsigned int j=0; j<n_bins; j++)
+			{
+				if( hist[j]>=i*max_hist/(double)h ) 
+					mvwaddch(curses_wins[0], lower-i, left+1+j/(double)n_bins*w, (char)254);
+			}
+		}	
+		wrefresh( curses_wins[0] );
+	}
+	// --- End of ELP histogram --- //
+	
+	// --- If there is sufficient space also draw the energy history --- //
+	if(curses_wins[1] != nullptr)
+	{
+		getmaxyx(curses_wins[1], rows, cols);
+		left = 8;
+		right = cols-3;
+		lower = 11; 
+		upper = 2;
+		w = right-left;
+		h = lower-upper;
+		
+		mvwaddch(curses_wins[1], upper+std::round(h*current.energy), 
+					left+1+round( (double)iter/iter_max*(w-1) ), '*');
+		wrefresh(curses_wins[1]);
+	}
+	// --- End of energy history --- //
+	
+	// --- Print some current diagnostics in text form --- //
+	if(curses_wins[2] != nullptr)
+	{
+		wclear(curses_wins[2]);
+		box(curses_wins[2], 0 ,0);
+		getmaxyx(curses_wins[2], rows, cols);
+		left = 2;
+		upper = 1;
+		lower = rows-2;
+		right = cols-1;
+		w = right-left;
+		h = lower-upper;
+		
+		mvwaddstr(curses_wins[2], 0, 1, "General diagnostics");
+		mvwaddch(curses_wins[2], upper+1, left-1, ACS_DIAMOND);
+		mvwprintw(curses_wins[2], upper+1, left, "Iteration #%d (%d configurations tested, %d accepted)",
+						iter, iter*n_candidates, accepted);
+		double scale = 1.0/n_candidates + (1.0 - 2.0/n_candidates)*iter/iter_max; 
+		scale = ( log(scale*n_candidates) - log(1.0-scale) )/E_c;
+		mvwprintw(curses_wins[2], upper+2, left, "Energy scaling: %g, ELP influence: %d%%", 
+					scale, (int)round(ELP*100.0));
+		
+		std::ostringstream out;
+		out<<"Modifications: ";
+		for(unsigned int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<
+													std::round(100.0*link_idx[i]/accepted)<<"%% ";
+		std::string tmp_str = out.str();
+		mvwprintw(curses_wins[2], upper+4, left, tmp_str.c_str() );
+		
+		out.str("");
+		out<<"--- ";
+		out<<std::round(100.0*action_idx[0]/accepted)<<"%% additions, ";
+		out<<std::round(100.0*action_idx[1]/accepted)<<"%% changes, ";
+		out<<std::round(100.0*action_idx[2]/accepted)<<"%% deletions";
+		out<<" ---";
+		tmp_str = out.str(); 
+		mvwprintw(curses_wins[2], upper+5, left+15, tmp_str.c_str() );
+		mvwprintw(curses_wins[2], lower, left, "E: %g (best: %g)", current.energy, best_energy);
+		
+		wrefresh(curses_wins[2]);
+	}
+	// --- End of diagnostics --- //
+	
+	refresh();
+	return;
+}
+
+void sann::end_curses()
+{
+	for(unsigned int i=0; i<3; i++) if(curses_wins[i] != nullptr) delwin(curses_wins[i]);
+	endwin();
+	
+	return;
+}
+#endif
+

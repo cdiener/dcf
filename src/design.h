@@ -124,6 +124,11 @@ class sann
 		 */
 		int ELP_idx(double energy);
 		
+		// Curses variables
+		#ifdef CURSES_HAVE_CURSES_H
+		WINDOW* curses_wins[3];
+		#endif
+		
 	public:
 		/**
 		 * Constructor
@@ -247,9 +252,19 @@ class sann
 		
 		#ifdef CURSES_HAVE_CURSES_H
 		/**
+		 * Initializes the curses screen
+		 */ 
+		int init_curses();
+		
+		/**
 		 * Gets detailed diagnostics in a nice curses output
 		 */
-		void get_curses();
+		void update_curses();
+		
+		/**
+		 * Destroys the curses screen
+		 */
+		 void end_curses();
 		#endif  
 		
 		/**
