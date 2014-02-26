@@ -59,7 +59,7 @@ int sann::ELP_idx(double energy)
 	else return floor( (energy-E_low)/step );
 }
 
-sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, int iter_max, int max_link, int n_c, int n_bins, int n_best)
+sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, const std::vector<int>& max_link, int iter_max, int n_c, int n_bins, int n_best)
 {	
 	this->dfs = dfs;
 	
@@ -67,7 +67,14 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 	for(unsigned int i=0; i<seqs.size(); i++) this->seqs.push_back( string_to_array(seqs[i]) );
 	n_link = this->seqs.size()+1; 
 	
-	this->max_link = max_link;
+	this->vmax_link = std::vector<int>(max_link);
+	for(unsigned int i=0; i<n_link; i++) if(vmax_link[i] > 0) mod_link.push_back(i);
+	if( mod_link.empty() )
+	{
+		std::cerr<<"All linkers have zero length. Nothing to optimize!"<<std::endl;
+		throw "error";
+	}
+	
 	n_candidates = n_c;
 	this->n_best = n_best;
 	
@@ -78,10 +85,8 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 	step = (E_up - E_low)/n_bins;
 	hist = std::vector<int>(n_bins, 0);
 	
-	// solutions init
-	current.links = std::vector<int>(n_link*max_link, 20);
-	
 	//Get initial solution
+	current.links = std::vector<std::vector<int> >(n_link, std::vector<int>());
 	current.energy = energy(current.links);
 	best_energy = current.energy;
 	update_best(current.links, current.energy);
@@ -100,13 +105,18 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 		srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
 	}
 		
-	candidates = std::vector<std::vector<int> >(n_candidates, std::vector<int>(n_link*max_link+2, 20) );
+	// Initialize candidate set
+	candidates.resize(n_c);
+	for(unsigned int i=0; i<n_c; i++) 
+		candidates[i].links = linker_set( n_link, std::vector<int>() );
+	
 	energies.resize(n_candidates+1);
 	
 	// subs init
 	read_blosum("blosum80.qij");
 	
 	accepted = iter = 0;
+	for(unsigned int i=0; i<n_link; i++) std::cout<<"vmax "<<i<<": "<<vmax_link[i]<<std::endl;
 }
 
 void sann::read_blosum(std::string file)
@@ -171,28 +181,13 @@ void sann::read_blosum(std::string file)
 	}
 }
 
-int sann::link_size(const linker_set& links, int idx)
-{
-	int stride = idx*max_link;
-	
-	// Catch some common cases:
-	if(links[stride] > 19) return 0;
-	if(links[stride+max_link-1] < 20) return max_link;
-	
-	int i = 0;
-	
-	while( links[stride+i] < 20 ) i++;
-	
-	return i;
-}
-
 std::vector<int> sann::assemble_seq(const linker_set& link)
 {   
 	int length = 0;
 	int write_idx = 0;
 	std::vector<int> l_link = std::vector<int>(n_link);
 	
-	for(unsigned int i=0; i<n_link; i++) l_link[i] = link_size(link, i);
+	for(unsigned int i=0; i<n_link; i++) l_link[i] = link[i].size();
 	
 	for(unsigned int i=0; i<n_link; i++)
 	{
@@ -204,7 +199,7 @@ std::vector<int> sann::assemble_seq(const linker_set& link)
 	
 	for(unsigned int i=0; i<n_link; i++)
 	{
-		for(unsigned int j=0; j<l_link[i]; j++) seq[write_idx+j] = link[i*max_link + j];
+		for(unsigned int j=0; j<l_link[i]; j++) seq[write_idx+j] = link[i][j];
 		write_idx += l_link[i];
 		
 		if(i<n_link-1)
@@ -262,9 +257,7 @@ int sann::update_best(const linker_set& links, double energy)
 		if(best_energy > energy) best_energy = energy;
 		
 		solution new_best;
-		new_best.links = std::vector<int>(n_link*max_link);
-		
-		for(unsigned int i=0; i<n_link*max_link; i++) new_best.links[i] = links[i];
+		new_best.links = links;
 		new_best.energy = energy;
 		
 		// Check for duplicates
@@ -314,11 +307,7 @@ std::string sann::get_best(double error, int full_seq)
 		{
 			for(unsigned int j=0; j<n_link; j++)
 			{
-				for(unsigned int k=0; k<max_link; k++)
-				{
-					if( sols[i].links[j*max_link+k]<20 ) out<<AA[ sols[i].links[j*max_link+k] ];
-					else out<<'-';
-				}
+				for(unsigned int k=0; k<sols[i].links[j].size(); k++) out<<AA[ sols[i].links[j][k] ];
 				out<<"\t ";
 			}
 		}
@@ -456,11 +445,7 @@ std::string sann::get_state()
 	
 	for(unsigned int i=0; i<n_link; i++)
 	{
-		for(unsigned int j=0; j<max_link; j++)
-		{
-			if( current.links[i*max_link+j]<20 ) out<<AA[ current.links[i*max_link+j] ];
-			else out<<'-';
-		}
+		for(unsigned int j=0; j<vmax_link[i]; j++) out<<AA[ current.links[i][j] ];
 		out<<"  ";
 	}
 	
@@ -498,38 +483,35 @@ int sann::mutate(int aa)
 
 void sann::cut(linker_set& links, int l_idx, int pos)
 {
-	unsigned int i;
-	
-	for(i=l_idx*max_link+pos; i<(l_idx+1)*max_link-1; i++)
-	{
-		links[i] = links[i+1];
-		if( links[i] == 20 ) break;
-	} 
-	links[(l_idx+1)*max_link-1] = 20;
+	links[l_idx].erase( links[l_idx].begin()+pos );
 	
 	return;
 }
 
-void sann::sample_linker(linker_set& new_link, const linker_set& old_link)
+void sann::sample_linker(cand& c, const linker_set& old_link)
 {
-	for(unsigned int i=0; i<n_link*max_link; i++) new_link[i] = old_link[i];
+	c.links = old_link;
 	
 	std::vector<int> cum_action(3);
 	
 	// First sample which linker to modify
-	int l_i = alglib::randominteger(n_link);
-	int length_i = link_size(new_link, l_i);
-	new_link[n_link*max_link] = l_i;
+	int l_i = 0;
+	if(mod_link.size() == 1) l_i = mod_link.back(); 
+	else l_i = mod_link[ alglib::randominteger( mod_link.size() ) ];
+	
+	int length_i = c.links[l_i].size();
+	if(length_i > vmax_link[l_i]) std::cout<<"Something went wrong!"<<std::endl;
+	c.li = l_i;
 	
 	// Choose the action to perform
-	if(new_link[l_i*max_link] > 19)	// empty linker - can only add
+	if( length_i == 0 )	// empty non-zero linker - can only add
 	{
-		new_link[l_i*max_link] = alglib::randominteger(20);
-		new_link[n_link*max_link+1] = 0;
+		c.links[l_i].emplace_back( alglib::randominteger(20) );
+		c.ai = 0;
 		
 		return;
 	}
-	else if(length_i == max_link) //full linker - can only change or delete
+	else if(length_i == vmax_link[l_i]) //full linker - can only change or delete
 	{
 		cum_action[0] = 0;
 		cum_action[1] = action_idx[1] + entropy_add;
@@ -540,11 +522,11 @@ void sann::sample_linker(linker_set& new_link, const linker_set& old_link)
 		
 		switch(a_i)
 		{
-			case 1: new_link[l_i*max_link+pos] = mutate( new_link[l_i*max_link+pos] );
-					new_link[n_link*max_link+1] = 1;
+			case 1: c.links[l_i][pos] = mutate( c.links[l_i][pos] );
+					c.ai = 1;
 					break;
-			case 2: cut(new_link, l_i, pos); 
-					new_link[n_link*max_link+1] = 2;
+			case 2: cut(c.links, l_i, pos); 
+					c.ai = 2;
 					break;
 		}
 		
@@ -561,14 +543,14 @@ void sann::sample_linker(linker_set& new_link, const linker_set& old_link)
 		
 		switch(a_i)
 		{
-			case 0:	new_link[l_i*max_link + length_i] = alglib::randominteger(20);
-					new_link[n_link*max_link+1] = 0;
+			case 0:	c.links[l_i].emplace_back( alglib::randominteger(20) );
+					c.ai = 0;
 					break;
-			case 1: new_link[l_i*max_link+pos] = mutate( new_link[l_i*max_link+pos] );
-					new_link[n_link*max_link+1] = 1;
+			case 1: c.links[l_i][pos] = mutate( c.links[l_i][pos] );
+					c.ai = 1;
 					break;
-			case 2: cut(new_link, l_i, pos);
-					new_link[n_link*max_link+1] = 2;
+			case 2: cut(c.links, l_i, pos);
+					c.ai = 2;
 					break;
 		}
 		
@@ -591,8 +573,7 @@ void sann::anneal()
 	for(unsigned int i=0; i<n_candidates; i++)
 	{
 		sample_linker(candidates[i], current.links);
-		energies[i] = energy(candidates[i]);
-		
+		energies[i] = energy(candidates[i].links);
 		
 		#pragma omp critical
 		{
@@ -615,7 +596,7 @@ void sann::anneal()
 	w = energies[n_candidates] + (1.0 - (double)iter/iter_max)*ELP*hist[h_idx]/iter;
 	cum_e[n_candidates] = exp(-w*scale);
 	
-	if(min_idx >= 0) update_best(candidates[min_idx], energies[min_idx]);
+	if(min_idx >= 0) update_best(candidates[min_idx].links, energies[min_idx]);
 	
 	for(unsigned int i=0; i<n_candidates+1; i++)
 		if(i>0) cum_e[i] += cum_e[i-1];
@@ -625,9 +606,9 @@ void sann::anneal()
 	if(new_sol < n_candidates)
 	{
 		accepted++;
-		link_idx[ candidates[new_sol][n_link*max_link] ]++;
-		action_idx[ candidates[new_sol][n_link*max_link+1] ]++;
-		for(unsigned int i=0; i<n_link*max_link; i++) current.links[i] = candidates[new_sol][i]; 
+		link_idx[ candidates[new_sol].li ]++;
+		action_idx[ candidates[new_sol].ai ]++;
+		current.links = candidates[new_sol].links; 
 		current.energy = energies[new_sol];
 	}
 	
