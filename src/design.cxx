@@ -116,7 +116,6 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 	read_blosum("blosum80.qij");
 	
 	accepted = iter = 0;
-	for(unsigned int i=0; i<n_link; i++) std::cout<<"vmax "<<i<<": "<<vmax_link[i]<<std::endl;
 }
 
 void sann::read_blosum(std::string file)
@@ -500,7 +499,6 @@ void sann::sample_linker(cand& c, const linker_set& old_link)
 	else l_i = mod_link[ alglib::randominteger( mod_link.size() ) ];
 	
 	int length_i = c.links[l_i].size();
-	if(length_i > vmax_link[l_i]) std::cout<<"Something went wrong!"<<std::endl;
 	c.li = l_i;
 	
 	// Choose the action to perform
