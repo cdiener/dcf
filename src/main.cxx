@@ -56,16 +56,17 @@ int main (int argc, char* argv[])
 	// Check command line arguments
 	if(argc<6)
 	{		
-		cerr<<"Missing arguments! Need at least 5!"<<endl;
-		cout<<"Usage: ./modes sequence_file n_linker n_iter data_dir C1 (C2)"<<endl;
+		cerr<<"Missing arguments! Need at least 6!"<<endl;
+		cout<<"Usage: ./modes sequence_file n_link_term n_link_internal n_iter data_dir C1 (C2)"<<endl;
 
 		return 1;
 	}
 	
 	string seq_path = argv[1];
-	int n_linker = atoi(argv[2]);
-	int n_iter = atoi(argv[3]);
-	string data_dir = argv[4];
+	int n_linker_term = atoi(argv[2]);
+	int n_linker_internal = atoi(argv[3]);
+	int n_iter = atoi(argv[4]);
+	string data_dir = argv[5];
 	
 	double start, end, time_s;
 	start = omp_get_wtime();	//set timer
@@ -82,7 +83,7 @@ int main (int argc, char* argv[])
 	alglib::dfreport rep;
 	alglib::ae_int_t info;
 	
-	for(unsigned int i=5; i<argc; i++)
+	for(unsigned int i=6; i<argc; i++)
 	{
 		mod_path = data_dir;
 		mod_path += "/model_";
@@ -176,7 +177,12 @@ int main (int argc, char* argv[])
 	start = omp_get_wtime();
 
 	vector<string> seqs = read_seq(seq_path);
-	sann opt(dfs, seqs, n_iter, n_linker, 100, 64);
+
+	std::vector<int> linker_sizes(seqs.size()+1, n_linker_internal);
+	linker_sizes[0] = n_linker_term; 
+	linker_sizes[linker_sizes.size()-1] = n_linker_term;
+	sann opt(dfs, seqs, linker_sizes, n_iter, 100, NTREE);
+
 	cout<<"Initial solution:"<<endl<<opt<<endl;
 	
 	
@@ -252,7 +258,7 @@ int main (int argc, char* argv[])
 		out.close();
 		cout<<endl<<endl;
 	}
-	else cout<<"\n\nBest sequences found: "<<endl<<opt.get_best()<<endl;
+	else cout<<"\n\nBest sequences found: "<<endl<<opt.get_best(0.0, 0)<<endl;
 	
 	end = omp_get_wtime();	
 	time_s = end-start;

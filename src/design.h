@@ -49,7 +49,12 @@ Helper functions and types
 /**
  * Represents a linker set
  */
-typedef std::vector<int> linker_set;
+typedef std::vector<std::vector<int> > linker_set;
+
+/**
+ * Represents a candidate for the optimization
+ */
+typedef struct{ linker_set links; int li; int ai; } cand;
 
 /**
  * A solution for the optimization
@@ -77,12 +82,13 @@ class sann
 		// General variables
 		std::vector<std::vector<int> > seqs;
 		int n_link;
-		int max_link;
+		std::vector<int> vmax_link;		// maximum lengths of the linkers
+		std::vector<int> mod_link;		// indices of non-zero linkers
 		int n_candidates;
 		int n_best;
 		int accepted, iter, iter_max;
 		std::vector<alglib::decisionforest> dfs;
-		std::vector<linker_set> candidates;
+		std::vector<cand> candidates;
 		std::vector<double> energies;
 		
 		// Current solution
@@ -93,7 +99,7 @@ class sann
 		double best_energy;
 		
 		// Boltzmann sample histograms
-		std::vector<int> link_idx;		//index distributions - this is not used for sampling 
+		std::vector<int> link_idx;		//index distributions - this is currently *not* used for sampling 
 		std::vector<int> action_idx;	//action distributions - actions are [ 0=add, 1=change, 2=delete ]
 		
 		// BLOSUM-based substitution
@@ -139,7 +145,8 @@ class sann
 		 * @param n_bins Number of bins for the ELP histograms
 		 */
 		sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, 
-				int iter_max=500, int max_link=8, int n_c=100, int n_bins=64, int n_best=8);
+				const std::vector<int>& max_link, int iter_max=500, int n_c=100, int n_bins=64, 
+					int n_best=8);
 		
 		/**
 		 * Destructor.
@@ -174,21 +181,12 @@ class sann
 		std::string get_best(double error=0.0, int full_seq=1);  
 		
 		/**
-		 * Get the length of a linker in a linker set 
-		 * 
-		 * @param links The linker set.
-		 * @param idx index of linker.
-		 * @return length of linker.
-		 */
-		int link_size(const linker_set& links, int idx);
-		
-		/**
 		 * Function to sample a new linker configuration from a previous one.
 		 * 
 		 * @param link The linker configuration.
 		 * @return A new linker configuration.
 		 */
-		void sample_linker(linker_set& new_link, const linker_set& old_link);
+		void sample_linker(cand& c, const linker_set& old_link);
 		 
 		 /**
 		  * Mutate an aminoacid for another one.
