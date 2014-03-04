@@ -44,8 +44,8 @@ To run an optimization joining the sequences found in *sequence_file* with a max
 @endcode 
 */
 
-const int NTREE = 100;
-const int CV = 0; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
+const int NTREE = 64;
+const int CV = 1; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
 const int BEST_FILE = 0; // Save best linkers to a file?
 const int E_LOG = 0; // Save an energy value log?
 
