@@ -20,6 +20,7 @@
  
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <omp.h>
 #include "iztli.h"
 #include "trainer.h"
@@ -54,19 +55,18 @@ using namespace std;
 int main (int argc, char* argv[])
 {	
 	// Check command line arguments
-	if(argc<7)
+	if(argc<6)
 	{		
-		cerr<<"Missing arguments! Need at least 6!"<<endl;
-		cout<<"Usage: ./modes sequence_file n_link_term n_link_internal n_iter data_dir C1 (C2)"<<endl;
+		cerr<<"Missing arguments! Need at least 5!"<<endl;
+		cout<<"Usage: ./modes sequence_file \'l1 l2 ...\' n_iter data_dir C1 (C2)"<<endl;
 
 		return 1;
 	}
 	
 	string seq_path = argv[1];
-	int n_linker_term = atoi(argv[2]);
-	int n_linker_internal = atoi(argv[3]);
-	int n_iter = atoi(argv[4]);
-	string data_dir = argv[5];
+	string l_sizes = argv[2];
+	int n_iter = atoi(argv[3]);
+	string data_dir = argv[4];
 	
 	double start, end, time_s;
 	start = omp_get_wtime();	//set timer
@@ -83,7 +83,7 @@ int main (int argc, char* argv[])
 	alglib::dfreport rep;
 	alglib::ae_int_t info;
 	
-	for(unsigned int i=6; i<argc; i++)
+	for(unsigned int i=5; i<argc; i++)
 	{
 		mod_path = data_dir;
 		mod_path += "/model_";
@@ -178,9 +178,11 @@ int main (int argc, char* argv[])
 
 	vector<string> seqs = read_seq(seq_path);
 
-	std::vector<int> linker_sizes(seqs.size()+1, n_linker_internal);
-	linker_sizes[0] = n_linker_term; 
-	linker_sizes[linker_sizes.size()-1] = n_linker_term;
+	// Parse the linker sizes
+	stringstream s_stream(l_sizes);
+	std::vector<int> linker_sizes(seqs.size()+1, 0);
+	for(unsigned int i=0; i<seqs.size()+1; i++) s_stream >> linker_sizes[i];
+	
 	sann opt(dfs, seqs, linker_sizes, n_iter, 100, NTREE);
 
 	cout<<"Initial solution:"<<endl<<opt<<endl;
