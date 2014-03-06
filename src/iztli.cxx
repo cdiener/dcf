@@ -24,7 +24,7 @@
 
 // Function implementations 
 
-double Hm(std::vector<int> seq)
+double Hm(const std::vector<int>& seq)
 {
 	double hwin, hm=0.0;
 	int w = std::min( (int)seq.size() ,W);
@@ -45,7 +45,7 @@ double Hm(std::vector<int> seq)
 	return hm/(seq.size()-w+1);
 }
 
-double charge(std::vector<int> seq)
+double charge(const std::vector<int>& seq)
 {
 	int K,R,D,E;
 	K=R=D=E=0;
@@ -64,7 +64,7 @@ double charge(std::vector<int> seq)
 	return ( 1.0*(K+R-D-E) )/( seq.size() ); //1.0 for double conversion
 }
 
-double charge_var(std::vector<int> seq)
+double charge_var(const std::vector<int>& seq)
 {
 	int K,R,D,E;
 	K=R=D=E=0;
@@ -99,7 +99,7 @@ double charge_var(std::vector<int> seq)
 	return cmax-cmin;
 }
 
-double pI(std::vector<int> seq)
+double pI(const std::vector<int>& seq)
 {
 	int C,D,E,Y,H,K,R;
 	C=D=E=Y=H=K=R=0;
@@ -153,7 +153,7 @@ double pI(std::vector<int> seq)
 	else return pH;
 }
 
-double maxHM(std::vector<int> seq)
+double rangeHM(const std::vector<int>& seq)
 {
 	int w = std::min( (int)seq.size() ,W);
 	double Hcos, Hsin, Hup, Hlow;
@@ -209,7 +209,7 @@ double maxHM(std::vector<int> seq)
 	return Hup-Hlow;
 }
 
-std::vector<int> countAA(std::vector<int> seq)
+std::vector<int> countAA(const std::vector<int>& seq)
 {
 	std::vector<int> counts(20, 0);
 	//for(unsigned int i=0; i<20; i++) counts[i] = 0;
@@ -219,7 +219,7 @@ std::vector<int> countAA(std::vector<int> seq)
 	return counts;
 }
 
-double logP(std::vector<int> seq, std::vector<int> counts)
+double logP(const std::vector<int>& seq, const std::vector<int>& counts)
 {
 	double logP = logP_coef[0];
 
@@ -228,7 +228,70 @@ double logP(std::vector<int> seq, std::vector<int> counts)
 	return logP;
 }
 
-std::vector<int> string_to_array(std::string seq)
+double alpha(const std::vector<int>& seq)
+{
+	unsigned int n = seq.size();
+	if(n<7) return 0.0;
+	
+	int w = 5;
+	std::vector<double> tetra_pep(n-3, 0.0);
+	std::vector<int> alpha(n-3, 0);
+	int alpha_sum; 
+	
+	// Get tetra-peptide propensities
+	tetra_pep[0] = (alpha_prop[ seq[0] ] + alpha_prop[ seq[1] ] + alpha_prop[ seq[2] ] +
+					alpha_prop[ seq[3] ])/4.0;
+	for(unsigned int i=1; i<n-3; i++)
+	{
+		tetra_pep[i] = tetra_pep[i-1] - alpha_prop[ seq[i-1] ]/4.0 + alpha_prop[ seq[i+3] ]/4.0;
+	}
+	
+	w = std::min(w, (int)tetra_pep.size() );
+	//Check for alpha-fragments (4 out of 6 are alpha-prone)
+	alpha_sum = 0;
+	for(unsigned int j=0; j<w; j++) alpha_sum += (int)(tetra_pep[j] > alpha_cut);
+	if(alpha_sum>4) for(unsigned int k=0; k<=w; k++) alpha[k] = 1;
+	
+	for(unsigned int i=1; i<tetra_pep.size()-w; i++)
+	{
+		alpha_sum = alpha_sum - (int)(tetra_pep[i-1] > alpha_cut) + (int)(tetra_pep[i+w] > alpha_cut);
+		if(alpha_sum>4) for(unsigned int k=i; k<=i+w; k++) alpha[k] = 1;
+	}
+	
+	// Extend alpha-sections
+	int j=0;
+	for(unsigned int i=1; i<alpha.size()-1; i++)
+	{
+		// Extend left
+		if(alpha[i-1] == 0 && alpha[i] == 1)
+		{
+			j=i-1;
+			while( j>=0 && alpha[j]==0 && (tetra_pep[j] > alpha_cut) )
+			{
+				alpha[j] = 1;
+				j--;
+			}
+		}
+		//Extend right
+		else if( alpha[i] == 0 && alpha[i+1] == 1 )
+		{
+			j=i+1;
+			while( j<alpha.size() && alpha[j]==0 && (tetra_pep[j] > alpha_cut) )
+			{
+				alpha[j] = 1;
+				j++;
+			}
+		}
+	}
+	
+	// Finally count the alpha-proportion
+	alpha_sum = 0;
+	for(unsigned int i=0; i<alpha.size(); i++) alpha_sum += alpha[i];
+	
+	return 1.0*alpha_sum/alpha.size();
+}
+
+std::vector<int> string_to_array(const std::string& seq)
 {
 	unsigned int n = seq.size();
 	std::vector<int> out(n);
@@ -238,7 +301,7 @@ std::vector<int> string_to_array(std::string seq)
 	return out; 
 }
 
-std::vector<std::string> read_seq(std::string path)
+std::vector<std::string> read_seq(const std::string& path)
 {
 	std::vector<std::string> seqs;	
 	std::ifstream seqfile( path.c_str() );

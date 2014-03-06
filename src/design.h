@@ -39,7 +39,7 @@ General prototypes and definitions.
 */
 
 const int entropy_add = 8;
-const double E_c = 0.005; // The largest competing energy difference that we still want to accept with P = 1 - min_acc
+const double E_c = 0.05; // The largest competing energy difference that we still want to accept with P = 1 - min_acc
 const double ELP = 1.5; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values)  
 
 /** 

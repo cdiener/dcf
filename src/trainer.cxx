@@ -57,11 +57,12 @@ alglib::real_2d_array read_vars(const std::string pos, const std::string neg)
 		full[i][0] = charge(seq);
 		full[i][1] = Hm(seq);
 		full[i][2] = pI(seq);
-		full[i][3] = maxHM(seq);
+		full[i][3] = rangeHM(seq);
 		full[i][4] = charge_var(seq);
 		counts = countAA(seq);
 		full[i][5] = logP(seq, counts);
-		for(unsigned int j=6; j<26; j++) full[i][j] = 1.0*counts[j-6]/seq.size();
+		full[i][6] = alpha(seq);
+		for(unsigned int j=7; j<27; j++) full[i][j] = 1.0*counts[j-7]/seq.size();
 
 
 		// Mark as positive class
@@ -75,11 +76,12 @@ alglib::real_2d_array read_vars(const std::string pos, const std::string neg)
 		full[i][0] = charge(seq);
 		full[i][1] = Hm(seq);
 		full[i][2] = pI(seq);
-		full[i][3] = maxHM(seq);
+		full[i][3] = rangeHM(seq);
 		full[i][4] = charge_var(seq);
 		counts = countAA(seq);
 		full[i][5] = logP(seq, counts);
-		for(unsigned int j=6; j<26; j++) full[i][j] = 1.0*counts[j-6]/seq.size();
+		full[i][6] = alpha(seq);
+		for(unsigned int j=7; j<27; j++) full[i][j] = 1.0*counts[j-7]/seq.size();
 
 
 		// Mark as negative class

@@ -231,10 +231,11 @@ double sann::energy(const linker_set& link)
 	vars[0] = charge(seq);
 	vars[1] = Hm(seq);
 	vars[2] = pI(seq);
-	vars[3] = maxHM(seq);
+	vars[3] = rangeHM(seq);
 	vars[4] = charge_var(seq);
 	counts = countAA(seq);
 	vars[5] = logP(seq, counts);
+	vars[6] = alpha(seq);
 	for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = 1.0*counts[j-n_var+20]/seq.size();
 	
 	for(unsigned int i=0; i<dfs.size(); i++)

@@ -54,7 +54,7 @@ using namespace std;
 int main (int argc, char* argv[])
 {	
 	// Check command line arguments
-	if(argc<6)
+	if(argc<7)
 	{		
 		cerr<<"Missing arguments! Need at least 6!"<<endl;
 		cout<<"Usage: ./modes sequence_file n_link_term n_link_internal n_iter data_dir C1 (C2)"<<endl;
