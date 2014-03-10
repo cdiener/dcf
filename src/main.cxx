@@ -205,9 +205,9 @@ int main (int argc, char* argv[])
 	int curses_success = opt.init_curses();
 	if(!curses_success)
 	{ 
+		opt.end_curses();
 		cout<<"Terminal window too small for nice output - using fallback..."<<endl; 
 		cout.flush();
-		opt.end_curses();
 	} 
 	
 	for(unsigned int i=0; i<n_iter; i++)

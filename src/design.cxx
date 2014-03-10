@@ -591,7 +591,7 @@ int sann::init_curses()
 	left = 5;
 	right = std::min(cols-left, n_bins+left);
 	
-	for(unsigned int i=0; i<3; i++) curses_wins[i] == nullptr;
+	for(unsigned int i=0; i<3; i++) curses_wins[i] = nullptr;
 	
 	// We can fit at least the two graphs
 	if(rows>=20 && cols>=42)
@@ -629,7 +629,7 @@ int sann::init_curses()
 	else return 0;
 	// We can fit the status bar as well
 	getmaxyx(stdscr, rows, cols);
-	if(rows>=35 && cols>=60)
+	if(rows>=26 && cols>=60)
 	{
 		curses_wins[2] = newwin(11, cols-2, 15,1);
 		box(curses_wins[2], 0 ,0);
