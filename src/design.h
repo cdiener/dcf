@@ -25,6 +25,7 @@
 #include "alglib/dataanalysis.h"
 #include "sys_config.h"
 #include <string>
+#include <array>
 #include <vector>
 #include <queue>
 //#include <memory>
@@ -40,7 +41,8 @@ General prototypes and definitions.
 
 const int entropy_add = 8;
 const double E_c = 0.05; // The largest competing energy difference that we still want to accept with P = 1 - min_acc
-const double ELP = 1.5; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values)  
+const double ELP = 1.5; // Factor how strong the EP should influence the energy values (0-none, 1-as much as the energy values) 
+const std::array<char, 1> EXCLUDED_AA = {'C'}; 
 
 /** 
 Helper functions and types
@@ -90,6 +92,7 @@ class sann
 		std::vector<alglib::decisionforest> dfs;
 		std::vector<cand> candidates;
 		std::vector<double> energies;
+		std::vector<int> valid_AA;
 		
 		// Current solution
 		solution current;
@@ -129,6 +132,14 @@ class sann
 		 * @return The index
 		 */
 		int ELP_idx(double energy);
+		
+		/**
+		 * Function checking whether a given amino acid is valid
+		 * 
+		 * @param aa The amino acid to check
+		 * @return true if valid, false if not valid
+		 */
+		 bool is_valid(char aa);
 		
 		// Curses variables
 		#ifdef CURSES_HAVE_CURSES_H

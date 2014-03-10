@@ -23,6 +23,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 #include <omp.h>
 
 // SANN implementations
@@ -57,6 +58,11 @@ int sann::ELP_idx(double energy)
 	if(energy < E_low) return 0;
 	else if(energy >= E_up) return n_bins-1;
 	else return floor( (energy-E_low)/step );
+}
+
+bool sann::is_valid(char aa)
+{
+	return (std::find(EXCLUDED_AA.begin(), EXCLUDED_AA.end(), aa) == EXCLUDED_AA.end());
 }
 
 sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std::string>& seqs, const std::vector<int>& max_link, int iter_max, int n_c, int n_bins, int n_best)
@@ -104,7 +110,11 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 	{
 		srand( 1e6*omp_get_wtime() + alglib::randominteger(RAND_MAX/2)+omp_get_thread_num() );
 	}
-		
+	
+	// Initialize sets of allowed amino acids
+	for(unsigned int i=0; i<20; i++)
+		if( is_valid(AA[i]) ) valid_AA.push_back(i);
+
 	// Initialize candidate set
 	candidates.resize(n_c);
 	for(unsigned int i=0; i<n_c; i++) 
@@ -160,7 +170,9 @@ void sann::read_blosum(std::string file)
 			{
 				a = AAmap.find(AA_order[i])->second;
 				b = AAmap.find(AA_order[j])->second;
-				subs[a][b] = subs[b][a] = dval;
+				if( is_valid(AA_order[i]) && is_valid(AA_order[j]) ) 
+					subs[a][b] = subs[b][a] = dval;
+				else subs[a][b] = subs[b][a] = 0.0;
 			}
 			else subs[i][j] = 0.0; 
 		}
@@ -176,7 +188,7 @@ void sann::read_blosum(std::string file)
 			sum += subs[i][j];
 			subs[i][j] = sum;
 		}
-		for(unsigned int j=0; j<20; j++) subs[i][j] /= sum;
+		for(unsigned int j=0; j<20; j++) if(sum>0.0) subs[i][j] /= sum;
 	}
 }
 
@@ -415,8 +427,9 @@ int sann::mutate(int aa)
 	if( alglib::randomreal()<p_blosum ) new_aa = sample_idx<double>(subs[aa], 20);
 	else
 	{
-		new_aa = alglib::randominteger(19);
-		if(new_aa >= aa) new_aa++;
+		new_aa = alglib::randominteger(valid_AA.size()-1);
+		if(valid_AA[new_aa] >= aa) new_aa = valid_AA[new_aa+1];
+		else new_aa = valid_AA[new_aa];
 	} 
 		
 	return new_aa;
@@ -446,7 +459,7 @@ void sann::sample_linker(cand& c, const linker_set& old_link)
 	// Choose the action to perform
 	if( length_i == 0 )	// empty non-zero linker - can only add
 	{
-		c.links[l_i].emplace_back( alglib::randominteger(20) );
+		c.links[l_i].emplace_back( valid_AA[ alglib::randominteger(valid_AA.size()) ] );
 		c.ai = 0;
 		
 		return;
@@ -483,7 +496,7 @@ void sann::sample_linker(cand& c, const linker_set& old_link)
 		
 		switch(a_i)
 		{
-			case 0:	c.links[l_i].emplace_back( alglib::randominteger(20) );
+			case 0:	c.links[l_i].emplace_back( valid_AA[ alglib::randominteger(valid_AA.size()) ] );
 					c.ai = 0;
 					break;
 			case 1: c.links[l_i][pos] = mutate( c.links[l_i][pos] );
