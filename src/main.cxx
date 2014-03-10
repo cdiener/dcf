@@ -260,7 +260,7 @@ int main (int argc, char* argv[])
 		out.close();
 		cout<<endl<<endl;
 	}
-	else cout<<"\n\nBest sequences found: "<<endl<<opt.get_best(0.0, 1)<<endl;
+	else cout<<"\n\nBest sequences found: "<<endl<<opt.get_best(0.0, 0)<<endl;
 	
 	end = omp_get_wtime();	
 	time_s = end-start;

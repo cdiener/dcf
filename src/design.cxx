@@ -21,6 +21,7 @@
 #include "design.h"
 #include "iztli.h"
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -308,10 +309,18 @@ std::string sann::get_best(double error, int full_seq)
 		tmp.pop_back();
 	}
 	
+	int max_w = 0;
+	for(unsigned int i=0; i<n_link; i++)
+	{
+		if(full_seq && i<seqs.size()) max_w += seqs[i].size();
+		max_w += vmax_link[i];
+	}
+	max_w = std::max(7, max_w)+n_link;
 	
-	if(!full_seq) for(unsigned int i=0; i<n_link; i++) out<<"Link "<<i<<"\t ";
-	else out<<"peptide \t\t ";
-	out<<"P(CPP)"<<std::endl;
+	if(!full_seq) out<<std::left<<std::setw(max_w)<<"Links";
+	else out<<std::setw(max_w)<<std::left<<"peptide";
+	for(unsigned int i=0; i<dfs.size(); i++) out<<"\t P"<<i;
+	out<<"\t P(all)\t %\u03B1"<<std::endl;
 	
 	for(int i=sols.size()-1; i>=0; i--)
 	{
@@ -319,16 +328,42 @@ std::string sann::get_best(double error, int full_seq)
 		{
 			for(unsigned int j=0; j<n_link; j++)
 			{
-				for(unsigned int k=0; k<sols[i].links[j].size(); k++) out<<AA[ sols[i].links[j][k] ];
-				out<<"\t ";
+				if(sols[i].links[j].empty()) out<<"_";
+				for(unsigned int k=0; k<sols[i].links[j].size(); k++) 
+					out<<AA[ sols[i].links[j][k] ];
+				out<<" ";
 			}
 		}
 		else
 		{
 			int_seq = assemble_seq(sols[i].links);
-			out<<get_seq(int_seq)<<"\t ";
+			out<<std::left<<std::setw(max_w)<<get_seq(int_seq);
 		}
-		out<<(1.0-error)*(1.0-sols[i].energy)<<std::endl;
+		
+		// Assemble data
+		std::vector<int> seq = assemble_seq(sols[i].links);
+		std::vector<int> counts;
+		double p = 0.0;
+		alglib::real_1d_array vars;
+		alglib::real_1d_array probs;
+		vars.setlength(n_var);
+		
+		vars[0] = charge(seq);
+		vars[1] = Hm(seq);
+		vars[2] = pI(seq);
+		vars[3] = rangeHM(seq);
+		vars[4] = charge_var(seq);
+		counts = countAA(seq);
+		vars[5] = logP(seq, counts);
+		vars[6] = alpha(seq);
+		for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = 1.0*counts[j-n_var+20]/seq.size();
+		
+		for(unsigned int j=0; j<dfs.size(); j++)
+		{
+			dfprocess(dfs[j], vars, probs);
+			out<<std::setprecision(3)<<"\t "<<probs[0];
+		}
+		out<<"\t "<<(1.0-error)*(1.0-sols[i].energy)<<"\t "<<vars[6]<<std::endl;
 	}
 	
 	return out.str();
