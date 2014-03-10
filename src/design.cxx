@@ -315,7 +315,7 @@ std::string sann::get_best(double error, int full_seq)
 		if(full_seq && i<seqs.size()) max_w += seqs[i].size();
 		max_w += vmax_link[i];
 	}
-	max_w = std::max(7, max_w)+n_link;
+	max_w = std::max(7, max_w)+n_link+4;
 	
 	if(!full_seq) out<<std::left<<std::setw(max_w)<<"Links";
 	else out<<std::setw(max_w)<<std::left<<"peptide";
