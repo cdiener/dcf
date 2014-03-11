@@ -45,8 +45,8 @@ To run an optimization joining the sequences found in *sequence_file* with a max
 @endcode 
 */
 
-const int NTREE = 64;
-const int CV = 0; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
+const int NTREE = 32;
+const int CV = 1; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
 const int BEST_FILE = 0; // Save best linkers to a file?
 const int E_LOG = 0; // Save an energy value log?
 
@@ -132,8 +132,8 @@ int main (int argc, char* argv[])
 			cout.flush();
 			
 			rf = trainer(NTREE);
-			if(CV) rf.rep_cv(data, 8, 8);
-			else rf.bootstrap(data, 64);
+			if(CV) rf.rep_cv(data, 4, 4);
+			else rf.bootstrap(data, 16);
 			
 			mean_err = rf.mean_error();
 			sd_err = rf.sd_error();
@@ -183,7 +183,7 @@ int main (int argc, char* argv[])
 	std::vector<int> linker_sizes(seqs.size()+1, 0);
 	for(unsigned int i=0; i<seqs.size()+1; i++) s_stream >> linker_sizes[i];
 	
-	sann opt(dfs, seqs, linker_sizes, n_iter, 100, NTREE);
+	sann opt(dfs, seqs, linker_sizes, n_iter, 100, 32);
 
 	cout<<"Initial solution:"<<endl<<opt<<endl;
 	
