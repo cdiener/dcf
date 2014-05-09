@@ -33,9 +33,7 @@
 alglib::real_2d_array read_vars(const std::string pos, const std::string neg)
 {
 	std::vector<std::string> pos_seq, neg_seq;
-	double collector;
 	std::vector<int> seq, counts;
-	int j;
 	alglib::real_2d_array full;
 
 	//Read sequences
@@ -60,7 +58,7 @@ alglib::real_2d_array read_vars(const std::string pos, const std::string neg)
 		full[i][3] = rangeHM(seq);
 		full[i][4] = charge_var(seq);
 		counts = countAA(seq);
-		full[i][5] = logP(seq, counts);
+		full[i][5] = logP(counts);
 		full[i][6] = alpha(seq);
 		for(unsigned int j=7; j<27; j++) full[i][j] = 1.0*counts[j-7]/seq.size();
 
@@ -79,7 +77,7 @@ alglib::real_2d_array read_vars(const std::string pos, const std::string neg)
 		full[i][3] = rangeHM(seq);
 		full[i][4] = charge_var(seq);
 		counts = countAA(seq);
-		full[i][5] = logP(seq, counts);
+		full[i][5] = logP(counts);
 		full[i][6] = alpha(seq);
 		for(unsigned int j=7; j<27; j++) full[i][j] = 1.0*counts[j-7]/seq.size();
 
@@ -107,7 +105,7 @@ void class_set::generate(const alglib::real_2d_array data, double train_frac)
 	this->train.setlength( n_train, data.cols() );
 	this->test.setlength( data.rows()-n_train, data.cols() );
 
-	for(unsigned int i=0; i<n_train; i++)
+	for(int i=0; i<n_train; i++)
 		for(unsigned int j=0; j<data.cols(); j++) this->train[i][j] = data[ idx[i] ][j];
 
 	for(unsigned int i=0; i<data.rows()-n_train; i++)
@@ -138,7 +136,7 @@ void class_set::generate_bootstrap(const alglib::real_2d_array data, int n)
 		{
 			if( idx[i]>0 )
 			{
-				for(unsigned int j=0; j<idx[i]; j++) 
+				for(int j=0; j<idx[i]; j++) 
 					for(unsigned int k=0; k<data.cols(); k++) this->train[train_i+j][k] = data[i][k];
 				train_i += idx[i];
 			}
@@ -179,7 +177,7 @@ void trainer::bootstrap(const alglib::real_2d_array data, int rep)
 		double err;
 		
 		#pragma omp for
-		for(unsigned int i=0; i<rep; i++)
+		for(int i=0; i<rep; i++)
 		{
 			boot.generate_bootstrap(data, (int)data.rows());
 			dfbuildrandomdecisionforest( boot.train, boot.train.rows(), n_var, 2, n_tree, R, info, df, dfrep);
@@ -221,7 +219,7 @@ void trainer::cv(const alglib::real_2d_array data, int folds)
 		int start, end;
 		
 		#pragma omp for
-		for(unsigned int i=0; i<folds; i++)
+		for(int i=0; i<folds; i++)
 		{
 			tmp_idx = idx;
 			// Decide for the test set
@@ -266,7 +264,7 @@ void trainer::rep_cv(const alglib::real_2d_array data, int rep, int folds)
 		reset = 0;
 	}
 	
-	for(unsigned int i=0; i<rep; i++) this->cv(data, folds);
+	for(int i=0; i<rep; i++) this->cv(data, folds);
 	reset = 1;
 }
 

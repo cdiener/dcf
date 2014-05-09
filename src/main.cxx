@@ -45,10 +45,11 @@ To run an optimization joining the sequences found in *sequence_file* with a max
 @endcode 
 */
 
-const int NTREE = 32;
-const int CV = 1; // use cross-validation? 0 - use bootstrap, 1 - use cross-validation
-const int BEST_FILE = 0; // Save best linkers to a file?
-const int E_LOG = 0; // Save an energy value log?
+const int NTREE = 32; 		// Number of decicion trees in the forest
+const int CV = 1; 			// use cross-validation? 0 - use bootstrap, 1 - use cross-validation
+const int BEST_FILE = 0; 	// Save best linkers to a file?
+const int E_LOG = 0; 		// Save an energy value log?
+const int OUT_IT = 100; 	// Output information each OUT_IT iterations
 
 using namespace std;
 
@@ -83,7 +84,7 @@ int main (int argc, char* argv[])
 	alglib::dfreport rep;
 	alglib::ae_int_t info;
 	
-	for(unsigned int i=5; i<argc; i++)
+	for(int i=5; i<argc; i++)
 	{
 		mod_path = data_dir;
 		mod_path += "/model_";
@@ -210,11 +211,11 @@ int main (int argc, char* argv[])
 		cout.flush();
 	} 
 	
-	for(unsigned int i=0; i<n_iter; i++)
+	for(int i=0; i<n_iter; i++)
 	{
 		opt.anneal();
 		
-		if( (i+1)%50==0 )
+		if( (i+1)%OUT_IT==0 )
 		{ 
 			if(curses_success) opt.update_curses();
 			else
@@ -235,7 +236,7 @@ int main (int argc, char* argv[])
 	{
 		opt.anneal();
 		
-		if( (i+1)%50==0 )
+		if( (i+1)%OUT_IT==0 )
 		{ 
 			
 			cout<<"        \r";

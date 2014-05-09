@@ -1,4 +1,5 @@
 set(CMAKE_BUILD_TYPE Release)
+add_definitions(-std=c++11)
 
 add_library(alglib STATIC dataanalysis.h ap.h alglibinternal.h linalg.h statistics.h 
 		specialfunctions.h alglibmisc.h solvers.h optimization.h 

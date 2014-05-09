@@ -149,7 +149,7 @@ Approximates the water-octanol partition coefficient logP.
 @param counts The amino acid counts
 @return logP value
 */
-double logP(const std::vector<int>& seq, const std::vector<int>& counts);
+double logP(const std::vector<int>& counts);
 
 /**
  * Approximates the proportion of alpha-helices in the peptide

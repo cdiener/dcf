@@ -29,7 +29,7 @@
 #include "sys_config.h"
 #include <string>
 
-const double R = 0.6; // Fraction of data used to construct individual trees
+const double R = 0.66;	// Fraction of data used to construct individual trees
 
 /* Classification */
 

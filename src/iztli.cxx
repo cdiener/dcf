@@ -180,7 +180,7 @@ double rangeHM(const std::vector<int>& seq)
 		}
 		
 		//Calculate first window
-		for(unsigned int i=0; i<w; i++)
+		for(int i=0; i<w; i++)
 		{
 			Hcos += SCALE[ seq[i] ]*cos_t[i];
 			Hsin += SCALE[ seq[i] ]*sin_t[i];
@@ -199,7 +199,6 @@ double rangeHM(const std::vector<int>& seq)
 
 	// Calculate range 
 
-	double delta;
 	for(unsigned int i=0; i<seq.size()-w+1; i++)
 	{
 		Hup = std::max(Hup, Hmax[i]);
@@ -219,7 +218,7 @@ std::vector<int> countAA(const std::vector<int>& seq)
 	return counts;
 }
 
-double logP(const std::vector<int>& seq, const std::vector<int>& counts)
+double logP(const std::vector<int>& counts)
 {
 	double logP = logP_coef[0];
 
@@ -249,8 +248,8 @@ double alpha(const std::vector<int>& seq)
 	w = std::min(w, (int)tetra_pep.size() );
 	//Check for alpha-fragments (4 out of 6 are alpha-prone)
 	alpha_sum = 0;
-	for(unsigned int j=0; j<w; j++) alpha_sum += (int)(tetra_pep[j] > alpha_cut);
-	if(alpha_sum>4) for(unsigned int k=0; k<=w; k++) alpha[k] = 1;
+	for(int j=0; j<w; j++) alpha_sum += (int)(tetra_pep[j] > alpha_cut);
+	if(alpha_sum>4) for(int k=0; k<=w; k++) alpha[k] = 1;
 	
 	for(unsigned int i=1; i<tetra_pep.size()-w; i++)
 	{
@@ -276,7 +275,7 @@ double alpha(const std::vector<int>& seq)
 		else if( alpha[i] == 0 && alpha[i+1] == 1 )
 		{
 			j=i+1;
-			while( j<alpha.size() && alpha[j]==0 && (tetra_pep[j] > alpha_cut) )
+			while( j<(int)alpha.size() && alpha[j]==0 && (tetra_pep[j] > alpha_cut) )
 			{
 				alpha[j] = 1;
 				j++;

@@ -75,7 +75,7 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 	n_link = this->seqs.size()+1; 
 	
 	this->vmax_link = std::vector<int>(max_link);
-	for(unsigned int i=0; i<n_link; i++) if(vmax_link[i] > 0) mod_link.push_back(i);
+	for(int i=0; i<n_link; i++) if(vmax_link[i] > 0) mod_link.push_back(i);
 	if( mod_link.empty() )
 	{
 		std::cerr<<"All linkers have zero length. Nothing to optimize!"<<std::endl;
@@ -118,7 +118,7 @@ sann::sann(const std::vector<alglib::decisionforest>& dfs, const std::vector<std
 
 	// Initialize candidate set
 	candidates.resize(n_c);
-	for(unsigned int i=0; i<n_c; i++) 
+	for(int i=0; i<n_c; i++) 
 		candidates[i].links = linker_set( n_link, std::vector<int>() );
 	
 	energies.resize(n_candidates+1);
@@ -133,7 +133,7 @@ void sann::read_blosum(std::string file)
 {
 	std::ifstream in(file);
 	std::string tmp, AA_order;
-	int m_idx, a, b;
+	int a, b;
 	double dval, sum;
 	
 	if(!in.good())
@@ -199,9 +199,9 @@ std::vector<int> sann::assemble_seq(const linker_set& link)
 	int write_idx = 0;
 	std::vector<int> l_link = std::vector<int>(n_link);
 	
-	for(unsigned int i=0; i<n_link; i++) l_link[i] = link[i].size();
+	for(int i=0; i<n_link; i++) l_link[i] = link[i].size();
 	
-	for(unsigned int i=0; i<n_link; i++)
+	for(int i=0; i<n_link; i++)
 	{
 		length += l_link[i];
 		if(i<n_link-1) length += seqs[i].size();
@@ -209,9 +209,9 @@ std::vector<int> sann::assemble_seq(const linker_set& link)
 	
 	std::vector<int> seq = std::vector<int>(length);
 	
-	for(unsigned int i=0; i<n_link; i++)
+	for(int i=0; i<n_link; i++)
 	{
-		for(unsigned int j=0; j<l_link[i]; j++) seq[write_idx+j] = link[i][j];
+		for(int j=0; j<l_link[i]; j++) seq[write_idx+j] = link[i][j];
 		write_idx += l_link[i];
 		
 		if(i<n_link-1)
@@ -247,7 +247,7 @@ double sann::energy(const linker_set& link)
 	vars[3] = rangeHM(seq);
 	vars[4] = charge_var(seq);
 	counts = countAA(seq);
-	vars[5] = logP(seq, counts);
+	vars[5] = logP(counts);
 	vars[6] = alpha(seq);
 	for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = 1.0*counts[j-n_var+20]/seq.size();
 	
@@ -265,7 +265,7 @@ int sann::update_best(const linker_set& links, double energy)
 	solution worst;
 	if(!best.empty()) worst = best[0];
 	
-	if( (best.size() < n_best) || (energy < worst.energy) )
+	if( ((int)best.size() < n_best) || (energy < worst.energy) )
 	{
 		if(best_energy > energy) best_energy = energy;
 		
@@ -277,7 +277,7 @@ int sann::update_best(const linker_set& links, double energy)
 		for(unsigned int i=0; i<best.size(); i++)
 			if(best[i].links == new_best.links) return 0;
 		
-		if(best.size() < n_best)
+		if( (int)best.size() < n_best)
 		{
 			best.push_back(std::move(new_best));
 			std::push_heap(best.begin(), best.end(), solution_compare());
@@ -310,9 +310,9 @@ std::string sann::get_best(double error, int full_seq)
 	}
 	
 	int max_w = 0;
-	for(unsigned int i=0; i<n_link; i++)
+	for(int i=0; i<n_link; i++)
 	{
-		if(full_seq && i<seqs.size()) max_w += seqs[i].size();
+		if( full_seq && i<(int)seqs.size() ) max_w += seqs[i].size();
 		max_w += vmax_link[i];
 	}
 	max_w = std::max(7, max_w)+n_link+4;
@@ -326,7 +326,7 @@ std::string sann::get_best(double error, int full_seq)
 	{
 		if(!full_seq)
 		{
-			for(unsigned int j=0; j<n_link; j++)
+			for(int j=0; j<n_link; j++)
 			{
 				if(sols[i].links[j].empty()) out<<"_";
 				for(unsigned int k=0; k<sols[i].links[j].size(); k++) 
@@ -343,7 +343,6 @@ std::string sann::get_best(double error, int full_seq)
 		// Assemble data
 		std::vector<int> seq = assemble_seq(sols[i].links);
 		std::vector<int> counts;
-		double p = 0.0;
 		alglib::real_1d_array vars;
 		alglib::real_1d_array probs;
 		vars.setlength(n_var);
@@ -354,7 +353,7 @@ std::string sann::get_best(double error, int full_seq)
 		vars[3] = rangeHM(seq);
 		vars[4] = charge_var(seq);
 		counts = countAA(seq);
-		vars[5] = logP(seq, counts);
+		vars[5] = logP(counts);
 		vars[6] = alpha(seq);
 		for(unsigned int j=n_var-20; j<n_var; j++) vars[j] = 1.0*counts[j-n_var+20]/seq.size();
 		
@@ -423,7 +422,7 @@ std::string sann::get_state()
 	out<<std::endl;
 	
 	out<<"Modifications: ";
-	for(unsigned int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<100.0*link_idx[i]/accepted<<"\% ";
+	for(int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<100.0*link_idx[i]/accepted<<"\% ";
 	out<<" (";
 	
 	out<<100.0*action_idx[0]/accepted<<"\% additions, ";
@@ -431,9 +430,9 @@ std::string sann::get_state()
 	out<<100.0*action_idx[2]/accepted<<"\% deletions";
 	out<<")"<<std::endl;
 	
-	for(unsigned int i=0; i<n_link; i++)
+	for(int i=0; i<n_link; i++)
 	{
-		for(unsigned int j=0; j<vmax_link[i]; j++) out<<AA[ current.links[i][j] ];
+		for(int j=0; j<vmax_link[i]; j++) out<<AA[ current.links[i][j] ];
 		out<<"  ";
 	}
 	
@@ -558,7 +557,7 @@ void sann::anneal()
 	double w;
 	
 	#pragma omp parallel for private(w, h_idx)
-	for(unsigned int i=0; i<n_candidates; i++)
+	for(int i=0; i<n_candidates; i++)
 	{
 		sample_linker(candidates[i], current.links);
 		energies[i] = energy(candidates[i].links);
@@ -585,10 +584,7 @@ void sann::anneal()
 	cum_e[n_candidates] = exp(-w*scale);
 	
 	if(min_idx >= 0) update_best(candidates[min_idx].links, energies[min_idx]);
-	
-	for(unsigned int i=0; i<n_candidates+1; i++)
-		if(i>0) cum_e[i] += cum_e[i-1];
-	
+	for(int i=0; i<n_candidates+1; i++) if(i>0) cum_e[i] += cum_e[i-1];
 	int new_sol = sample_idx<double>(cum_e, n_candidates+1);
 	
 	if(new_sol < n_candidates)
@@ -619,7 +615,7 @@ int sann::init_curses()
 	curs_set(0);
 	refresh();
 	
-	int rows, cols, lower, upper, left, right, w, h;
+	int rows, cols, lower, upper, left, right;
 	getmaxyx(stdscr, rows, cols);
 	lower = std::min(rows-10, 16);
 	upper = 5;
@@ -645,17 +641,15 @@ int sann::init_curses()
 		right = cols-3;
 		lower = 11; 
 		upper = 2;
-		w = right-left;
-		h = lower-upper;
 		
 		// Draw coordinate system only once
 		mvwaddstr(curses_wins[1], 0, 1, "P(CPP) history");
-		for(unsigned int i=upper+1; i<lower; i++) mvwaddch(curses_wins[1], i, left, ACS_VLINE);
+		for(int i=upper+1; i<lower; i++) mvwaddch(curses_wins[1], i, left, ACS_VLINE);
 		mvwaddch(curses_wins[1], upper, left, ACS_UARROW);
 		mvwaddstr(curses_wins[1], upper, left-1, "1");
 		mvwaddstr(curses_wins[1], (lower+upper)/2, left-7, "P(CPP)");
 		mvwaddch(curses_wins[1], lower,left, ACS_LLCORNER);
-		for(unsigned int i=left+1; i<right; i++) mvwaddch(curses_wins[1], lower, i, ACS_HLINE);
+		for(int i=left+1; i<right; i++) mvwaddch(curses_wins[1], lower, i, ACS_HLINE);
 		mvwaddch(curses_wins[1], lower, right, ACS_RARROW);
 		mvwaddstr(curses_wins[1], lower+1, left, "0");
 		mvwprintw(curses_wins[1], lower+1, right-4, "%d", iter_max);
@@ -692,24 +686,24 @@ void sann::update_curses()
 		h = lower-upper;
 		
 		max_hist = 0;
-		for(unsigned int i=0; i<n_bins; i++) if(hist[i]>max_hist) max_hist = hist[i];
+		for(int i=0; i<n_bins; i++) if(hist[i]>max_hist) max_hist = hist[i];
 		
 		mvwaddstr(curses_wins[0], 0, 1, "ELP histogram");
 		mvwaddch(curses_wins[0], upper, left, ACS_UARROW);
 		mvwaddch(curses_wins[0], upper, left-2, 'E');
-		for(unsigned int i=upper+1; i<lower; i++) mvwaddch(curses_wins[0], i, left, ACS_VLINE);
+		for(int i=upper+1; i<lower; i++) mvwaddch(curses_wins[0], i, left, ACS_VLINE);
 		mvwaddch(curses_wins[0], lower, left, ACS_LLCORNER);
 		mvwaddstr(curses_wins[0], lower+1, left, "0");
 		mvwaddstr(curses_wins[0], lower+1, right, "1");
-		for(unsigned int i=left+1; i<right; i++) mvwaddch(curses_wins[0], lower, i, ACS_HLINE);
+		for(int i=left+1; i<right; i++) mvwaddch(curses_wins[0], lower, i, ACS_HLINE);
 		mvwaddch(curses_wins[0], lower, right, ACS_RARROW);
 		
-		for(unsigned int i=h; i>0; i--)
+		for(int i=h; i>0; i--)
 		{
-			for(unsigned int j=0; j<n_bins; j++)
+			for(int j=0; j<n_bins; j++)
 			{
 				if( hist[j]>=i*max_hist/(double)h ) 
-					mvwaddch(curses_wins[0], lower-i, left+1+j/(double)n_bins*w, (char)254);
+					mvwaddch(curses_wins[0], lower-i, left+1+j/(double)n_bins*w, '#');
 			}
 		}	
 		wrefresh( curses_wins[0] );
@@ -757,8 +751,9 @@ void sann::update_curses()
 		
 		std::ostringstream out;
 		out<<"Modifications: ";
-		for(unsigned int i=0; i<n_link; i++) out<<"linker "<<i<<": "<<
-													std::round(100.0*link_idx[i]/accepted)<<"%% ";
+		for(int i=0; i<n_link; i++) out<<"linker "<<i<<": "
+									   <<std::round(100.0*link_idx[i]/accepted)<<"%% ";
+									   
 		std::string tmp_str = out.str();
 		mvwprintw(curses_wins[2], upper+4, left, tmp_str.c_str() );
 		

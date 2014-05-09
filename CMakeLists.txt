@@ -24,9 +24,9 @@ if (CURSES_FOUND)
 	set(LIBS ${LIBS} ${CURSES_LIBRARIES})
 endif()
 
-set(LIBS ${LIBS} alglib)
+set(LIBS ${LIBS} alglib -Wl,-O1,--sort-common,--as-needed,-z,relro)
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++11 -pipe -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2)
 
 file(COPY examples DESTINATION .)
 file(COPY src/blosum80.qij DESTINATION .)
