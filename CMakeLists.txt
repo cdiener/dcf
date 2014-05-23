@@ -36,13 +36,6 @@ configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_conf
 add_executable(modes src/main.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
 target_link_libraries(modes ${LIBS})
 
-enable_testing()
-
-#Test functionality
-add_test (RunTest modes examples/alpha.txt 4 200 examples CPP efficiency)
-set_tests_properties (RunTest
-  PROPERTIES PASS_REGULAR_EXPRESSION "Needed.+for optimization\\.")
-
-add_test(ArgFailTest modes bla 1)
-set_tests_properties (ArgFailTest 
-	PROPERTIES PASS_REGULAR_EXPRESSION "Usage: \\./modes")
+#Build tests
+add_executable(tests src/tests.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
+target_link_libraries(tests ${LIBS})
