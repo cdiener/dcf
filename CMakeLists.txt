@@ -40,6 +40,9 @@ target_link_libraries(modes ${LIBS})
 add_executable(predict src/predict.cxx src/iztli.cxx src/trainer.cxx)
 target_link_libraries(predict ${LIBS})
 
+#Build pfam_splitter
+add_executable(predict src/pfam.cxx)
+target_link_libraries(pfam_splitter ${LIBS})
 
 #Build tests
 add_executable(tests src/tests.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
