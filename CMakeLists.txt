@@ -36,6 +36,11 @@ configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_conf
 add_executable(modes src/main.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
 target_link_libraries(modes ${LIBS})
 
+#Build predict
+add_executable(predict src/predict.cxx src/iztli.cxx src/trainer.cxx)
+target_link_libraries(predict ${LIBS})
+
+
 #Build tests
 add_executable(tests src/tests.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
 target_link_libraries(tests ${LIBS})
