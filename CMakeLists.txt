@@ -41,7 +41,7 @@ add_executable(predict src/predict.cxx src/iztli.cxx src/trainer.cxx)
 target_link_libraries(predict ${LIBS})
 
 #Build pfam_splitter
-add_executable(predict src/pfam.cxx)
+add_executable(pfam_splitter src/split.cxx src/pfam.cxx)
 target_link_libraries(pfam_splitter ${LIBS})
 
 #Build tests
