@@ -94,6 +94,8 @@ int main (int argc, char* argv[])
 		return 1;
 	}
 	
+	ofstream log_file("predict_log.txt");
+
 	string seq_path = argv[1];
 	string data_dir = argv[2];
 	
@@ -123,7 +125,7 @@ int main (int argc, char* argv[])
 		in_mod_file.open(mod_path);
 		if(in_mod_file.is_open())
 		{
-			cout<<"Found saved model for "<<argv[i]<<"."<<endl;
+			log_file<<"Found saved model for "<<argv[i]<<"."<<endl;
 			in_mod_file>>est_type;
 			in_mod_file>>mean_err;
 			in_mod_file>>sd_err;
@@ -157,8 +159,7 @@ int main (int argc, char* argv[])
 				return 0;
 			}
 			
-			cout<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides";
-			cout.flush();
+			log_file<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides";
 			
 			rf = trainer(NTREE);
 			if(CV) rf.rep_cv(data, 4, 4);
@@ -172,7 +173,7 @@ int main (int argc, char* argv[])
 			dfbuildrandomdecisionforest( data, data.rows(), n_var, 2, NTREE, R, info, df, rep);
 			dfs.push_back(df);
 			
-			if(info==1) cout<<"done."<<endl; else cout<<"failed."<<endl;
+			if(info==1) log_file<<"done."<<endl; else log_file<<"failed."<<endl;
 			train_err = rep.relclserror;
 			
 			// Save model
@@ -180,7 +181,7 @@ int main (int argc, char* argv[])
 			mod_path += "/model_";
 			mod_path += argv[i];
 			mod_path += ".txt";
-			cout<<"Saved model and error estimates to "<<mod_path<<"."<<endl;
+			log_file<<"Saved model and error estimates to "<<mod_path<<"."<<endl;
 			out_mod_file.open(mod_path);
 			est_type = CV?"cv":"bootstrap";
 			out_mod_file<<est_type<<'\t';
@@ -193,13 +194,13 @@ int main (int argc, char* argv[])
 		}
 		
 		// Some diagnosis
-		cout<<"Training set classification error: "<<train_err<<endl;
-		cout<<est_type<<" error estimate: "<<mean_err<<" +- "<<sd_err<<endl<<endl;
+		log_file<<"Training set classification error: "<<train_err<<endl;
+		log_file<<est_type<<" error estimate: "<<mean_err<<" +- "<<sd_err<<endl<<endl;
 	}
 	
 	end = omp_get_wtime();
 	time_s = end-start;
-	cout<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for classification."<<endl<<endl;
+	log_file<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for classification."<<endl<<endl;
 
 	// Prediction part	
 	start = omp_get_wtime();
@@ -218,8 +219,7 @@ int main (int argc, char* argv[])
 	
 	end = omp_get_wtime();	
 	time_s = end-start;
-	cout<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for prediction."<<endl;
-	cout<<"Predicted probabilities"<<endl;
+	log_file<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for prediction."<<endl;
 	for(int i=0; i<all.size(); i++) cout<<all[i]/seqs.size()<<'\t';
 	cout<<endl;
 

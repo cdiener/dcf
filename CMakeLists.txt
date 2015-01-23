@@ -29,6 +29,7 @@ set(LIBS ${LIBS} alglib -Wl,-O1,--sort-common,--as-needed,-z,relro)
 add_definitions(-std=c++11 -pipe -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2)
 
 file(COPY examples DESTINATION .)
+file(COPY scripts DESTINATION .)
 file(COPY src/blosum80.qij DESTINATION .)
 configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_config.h )
 
