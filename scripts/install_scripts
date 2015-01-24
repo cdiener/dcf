@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+echo "Creating symlinks..."
+ln -s ../pfam_splitter pfam_splitter
+ln -s ../predict predict
+ln -s ../modes modes
+ln -s ../blosum80.qij blosum80.qij
+
+# Check for R and install dependencies
+R -e "print('Hello')" >/dev/null 2>&1 || echo "R is not installed!" && Rscript -e "install.packages( c('ggplot2', 'dplyr', 'Hmisc'), repos='http://cran.us.r-project.org' )" 

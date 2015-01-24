@@ -44,7 +44,7 @@ To run a prediction of sequences found in *sequence_file*, use the following:
 @endcode 
 */
 
-const int NTREE = 50; 		// Number of decicion trees in the forest
+const int NTREE = 64; 		// Number of decision trees in the forest
 const int CV = 1; 			// use cross-validation? 0 - use bootstrap, 1 - use cross-validation
 
 using namespace std;
@@ -210,11 +210,15 @@ int main (int argc, char* argv[])
 	vector<double> current_seq;
 	
 	// Predict
-	#pragma omp parallel for
+	#pragma omp parallel for private(current_seq)
 	for(int i=0; i<seqs.size(); i++)
 	{
 		current_seq = predict(dfs, seqs[i]);
+		
+		#pragma omp critical 
+		{
 		for(int j=0; j<current_seq.size(); j++) all[j] += current_seq[j]; 
+		}
 	}
 	
 	end = omp_get_wtime();	
