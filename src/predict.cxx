@@ -89,15 +89,25 @@ int main (int argc, char* argv[])
 	if(argc<4)
 	{		
 		cerr<<"Missing arguments! Need at least 3!"<<endl;
-		cout<<"Usage: ./predict sequence_file data_dir C1 (C2)"<<endl;
+		cout<<"Usage: ./predict data_dir 'C1 (C2) ...' data_file1 data_file2 ..."<<endl;
 
 		return 1;
 	}
 	
 	ofstream log_file("predict_log.txt");
 
-	string seq_path = argv[1];
-	string data_dir = argv[2];
+	string data_dir = argv[1];
+	string crit_list = argv[2];
+	
+	// Parse the criteria
+	stringstream s_stream(crit_list);
+	vector<string> criteria;
+	while(s_stream){
+		string c;
+		s_stream >> c;
+		if(c=="") break;
+		criteria.push_back(c);
+	}
 	
 	double start, end, time_s;
 	start = omp_get_wtime();	//set timer
@@ -114,18 +124,18 @@ int main (int argc, char* argv[])
 	alglib::dfreport rep;
 	alglib::ae_int_t info;
 	
-	for(int i=3; i<argc; i++)
+	for(int i=0; i<criteria.size(); i++)
 	{
 		mod_path = data_dir;
 		mod_path += "/model_";
-		mod_path += argv[i];
+		mod_path += criteria[i];
 		mod_path += ".txt";
 		df_serialized="";
 		
 		in_mod_file.open(mod_path);
 		if(in_mod_file.is_open())
 		{
-			log_file<<"Found saved model for "<<argv[i]<<"."<<endl;
+			log_file<<"Found saved model for "<<criteria[i]<<"."<<endl;
 			in_mod_file>>est_type;
 			in_mod_file>>mean_err;
 			in_mod_file>>sd_err;
@@ -146,11 +156,11 @@ int main (int argc, char* argv[])
 		{
 			pos_path = data_dir;
 			pos_path += "/pos_";
-			pos_path += argv[i];
+			pos_path += criteria[i];
 			pos_path += ".txt";
 			neg_path = data_dir;
 			neg_path += "/neg_";
-			neg_path += argv[i];
+			neg_path += criteria[i];
 			neg_path += ".txt";
 			data = read_vars( pos_path, neg_path ); 
 			if(data.rows() == 0)
@@ -159,7 +169,7 @@ int main (int argc, char* argv[])
 				return 0;
 			}
 			
-			log_file<<"Classifying "<<argv[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides";
+			log_file<<"Classifying "<<criteria[i]<<" on "<<n_var<<" variables over "<<data.rows()<<" peptides";
 			
 			rf = trainer(NTREE);
 			if(CV) rf.rep_cv(data, 4, 4);
@@ -179,7 +189,7 @@ int main (int argc, char* argv[])
 			// Save model
 			mod_path = data_dir;
 			mod_path += "/model_";
-			mod_path += argv[i];
+			mod_path += criteria[i];
 			mod_path += ".txt";
 			log_file<<"Saved model and error estimates to "<<mod_path<<"."<<endl;
 			out_mod_file.open(mod_path);
@@ -205,27 +215,37 @@ int main (int argc, char* argv[])
 	// Prediction part	
 	start = omp_get_wtime();
 	
-	vector<string> seqs = read_seq(seq_path);
-	vector<double> all(dfs.size()+1, 0.0);
-	vector<double> current_seq;
-	
-	// Predict
-	#pragma omp parallel for private(current_seq)
-	for(int i=0; i<seqs.size(); i++)
-	{
-		current_seq = predict(dfs, seqs[i]);
+	#pragma omp parallel for
+	for(int a_idx=3; a_idx<argc; a_idx++)
+	{ 
+		vector<string> seqs = read_seq(argv[a_idx]);
+		vector<double> all(dfs.size()+1, 0.0);
+		vector<double> probs;
 		
-		#pragma omp critical 
+		//Get family name
+		string fam_name(argv[a_idx]);
+		int name_start = fam_name.find('/');
+		int name_end = fam_name.find('.');
+		fam_name = fam_name.substr(name_start+1, name_end-name_start-1); 
+		
+		// Predict
+		for(int i=0; i<seqs.size(); i++)
 		{
-		for(int j=0; j<current_seq.size(); j++) all[j] += current_seq[j]; 
+			probs = predict(dfs, seqs[i]);
+			
+			for(int j=0; j<probs.size(); j++) all[j] += probs[j]; 
+		}
+		
+		#pragma omp critical
+		{
+			cout<<fam_name;
+			for(int j=0; j<all.size(); j++) cout<<'\t'<<all[j]/seqs.size();
+			cout<<endl;
 		}
 	}
-	
 	end = omp_get_wtime();	
 	time_s = end-start;
-	log_file<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for prediction."<<endl;
-	for(int i=0; i<all.size(); i++) cout<<all[i]/seqs.size()<<'\t';
-	cout<<endl;
+	log_file<<"Needed "<<time_s<<" s (+- "<<omp_get_wtick()<<" s) for prediction.";
 
 	return 0;
 }

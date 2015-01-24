@@ -1,13 +1,16 @@
-DATA_DIR = "pfam/"
+DATA_DIR = "pfam"
 
 get_prob = function(file_path)
 {
-	output = system( sprintf("./predict %s ../examples CPP efficiency", 
-					file_path), intern=TRUE )
+	if( !file.exists( "pfam_data.txt" ) ) {
+		output = system( sprintf("./predict ../examples 'CPP efficiency' %s/*.fasta > pfam_data.txt", 
+						file_path), intern=TRUE )
+	}
 	
-	vals = strsplit(output, "\t")[[1]][1:3]
-	
-	return( vals )
+	df = read.table("pfam_data.txt", header=F)
+	names(df) = c("family", "P_CPP", "P_eff", "P_all")
+
+	return( df )
 }
 
 get_pfam = function()
@@ -36,20 +39,5 @@ get_pfam = function()
 
 system("mkdir pfam 2> /dev/null")
 get_pfam()
-
-fasta_files = dir(DATA_DIR, ".fasta$")
-families = sapply(fasta_files, sub, pattern="\\..+", replacement="")
-
-probs = NULL
-
-cat("Getting predictions\n")
-for( f in fasta_files) {
-	probs = rbind( probs, get_prob( paste0(DATA_DIR,f) ) )
-	cat(".", file="")
-}
-
-pfam_data = data.frame(family=families, P.CPP=probs[,1], 
-						P.eff=probs[,2], P.all=probs[,3])
-						
-save(pfam_data, "pfam_probs.Rd")
-
+cat("Getting predictions...\n")
+pfam = get_prob(DATA_DIR)
