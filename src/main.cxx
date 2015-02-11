@@ -45,7 +45,7 @@ To run an optimization joining the sequences found in *sequence_file* with a max
 @endcode 
 */
 
-const int NTREE = 64; 		// Number of decicion trees in the forest
+const int NTREE = 200; 		// Number of decicion trees in the forest
 const int CV = 1; 			// use cross-validation? 0 - use bootstrap, 1 - use cross-validation
 const int BEST_FILE = 1; 	// Save best linkers to a file?
 const int E_LOG = 1; 		// Save an energy value log?

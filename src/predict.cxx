@@ -31,16 +31,14 @@ modes program
 
 @section DESCRIPTION
 
-The program takes a text or fasta file as argument followed by the maximum linker size that will be used to join the
-sequences in the file and the number of iterations. The probability to be a feasible is calculated by a random forest
-classfication based on positive and negative examples of the desired peptides. Those are assumed to be found in files named 
-pos_CRIT.txt  and neg_CRIT.txt, where CRIT denotes the classification criteria. Models are automatically cashed, but only used 
-if the criteria are passed as arguments.
+Predicts the avergae probability of the criteria C1..CN for a list of sequence
+files. It will always report the individual probabilities P(A), P(B), etc, as 
+well as the joint probability P(A & B & ...). 
  
 Usage:
 To run a prediction of sequences found in *sequence_file*, use the following:
 @code{.sh}
-> predict sequence_file n_iter ./data C1 (C2)
+> ./predict data_dir 'C1 (C2) ...' data_file1 data_file2 ...
 @endcode 
 */
 
