@@ -2,10 +2,12 @@ source("libgc.R")
 OD.min = 0.01
 OD.max = 0.5
 
-gcs = read.gc("MICs_24012015.txt")
+gcs1 = read.gc("mics_plate1.txt")
+gcs2 = read.gc("mics_plate2.txt")
 
-#Normalize the data
-cat("Normalizing...\n")
+#Join and normalize the data
+cat("Joining and Normalizing...\n")
+gcs = join(gcs1, gcs2)
 gcs = normalize(gcs)
 
 # Get all model statistics
@@ -29,19 +31,21 @@ cat("Plotting...\n")
 source("plot_settings.R")
 require(reshape2)
 
+area_control = mean(models$area[models$strain=="H2O"])
 growth.plot = ggplot(models, aes(x=strain, y=growth.rate, fill=treatment, width=0.8)) +
 		geom_bar(stat="summary", fun.y=mean, position=position_dodge(width=0.9)) +
 		geom_errorbar(stat="summary", fun.data=mean_sdl, mult=1, width=0.5, position=position_dodge(width=0.9)) +  
 		scale_fill_grey(name="") + scale_y_continuous(limits=c(0,0.45)) +  
-		xlab("") + ylab("growth rate (1/h)") + pub_theme + 
-		theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.8,0.92), legend.direction="horizontal")
+		xlab("") + ylab("growth rate (1/h)") + pub_theme
+		theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.7,0.92), legend.direction="horizontal")
 
 area.plot = ggplot(models, aes(x=strain, y=area, fill=treatment, width=0.8)) +
+		geom_hline(yintercept=area_control, linetype="dashed") +
 		geom_bar(stat="summary", fun.y=mean, position=position_dodge(width=0.9)) +
 		geom_errorbar(stat="summary", fun.data=mean_sdl, mult=1, width=0.5, position=position_dodge(width=0.9)) +  
 		scale_fill_grey(name="") + scale_y_continuous(limits=c(0,12)) +  
 		xlab("") + ylab("area under curve (a.u.)") + pub_theme + 
-		theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.8,0.92), legend.direction="horizontal")
+		theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.7,0.92), legend.direction="horizontal")
 
 # to get the original growth curves in nice formatting
 new = melt(gcs, id.vars="Time", variable.name="Probe", value.name="OD600")
