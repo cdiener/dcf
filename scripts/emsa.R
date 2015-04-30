@@ -33,11 +33,15 @@ emsa$Name = factor(emsa$Name, levels=unique(emsa$Name))
 
 require(scales)
 
-emsa_plot = ggplot(emsa, aes(x=Name, y=intensity, fill=charge_ratio, width=0.8)) + 
-			geom_bar(stat="summary", fun.y=mean, position=position_dodge(width=0.9)) +
-			geom_errorbar(stat="summary", fun.data=mean_sdl, mult=1, width=0.5, position=position_dodge(width=0.9)) +  
-			scale_fill_grey(name="charge ratio") + scale_y_continuous(limits=c(-0.05,1), breaks=seq(0,1,by=0.2), label=percent) +  
+emsa_plot = ggplot(emsa, aes(x=Name, y=intensity, shape=charge_ratio, 
+      col=charge_ratio, width=0.8)) + 
+			geom_point(size=3, position=position_dodge(width=0.8)) +  
+      stat_summary(fun.data=mean_sdl, mult=0, color="black", geom="errorbar", 
+      size=1, position=position_dodge(width=0.8)) +
+			scale_color_grey(start=0, end=0.5,name="charge ratio") +
+      scale_shape(name="charge ratio") +  
+      scale_y_continuous(limits=c(-0.05,1), breaks=seq(0,1,by=0.2), label=percent) +  
 			xlab("") + ylab("DNA retention (%)") + pub_theme + 
-			theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.9,0.5))
+			theme(axis.text.x = element_text(angle=45, hjust=1), legend.position=c(0.5,0.25))
 
-ggsave(emsa_plot, file="emsa.svg", width=7, height=5)
+ggsave(emsa_plot, file="emsa.svg", width=6, height=4)
