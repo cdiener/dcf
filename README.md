@@ -46,7 +46,14 @@ make
 ```
 
 This will install `modes` into you home directory under code/modes/bin. This will
-be sufficient to run `modes`. If you additionally want to run the scripts reproducing
+be sufficient to run `modes`. From within that directory. To run it wherever you can
+add it to you path with (add this line to your ~/.bashrc to make it permanent)
+
+```bash
+export PATH=PATH:~/code/modes/bin
+``` 
+
+If you additionally want to run the scripts reproducing
 the analysis in the publication you will also need R and some of its packages.
 To install R and all of its additional required packages use:
 
@@ -60,6 +67,8 @@ You can now run the scripts by hand or use `./run_all` to run all of them.
 
 Usage
 -----
+
+## Design
 
 In order to work `modes` requires the following things
 
@@ -76,7 +85,7 @@ If you have all those things you can call modes with
 ./modes domain_file 'k(1) ... k(n+1)' n_it ref_dir NAME1 NAME2 ...
 ``` 
 
-Here, domain_file is the fiel containing you domains, the quoted k's are the 
+Here, domain_file is the field containing you domains, the quoted k's are the 
 maximum lengths of the joining fragments, n_it is the number of iterations for 
 the optimizer, ref_dir is the path to the directory containingyour reference 
 lists and NAMEk are the names of the (at least one) set of reference sequences. 
@@ -97,7 +106,7 @@ flow with:
 This will run 2000 iterations of optimization and show you the resulting
 optimal fragments. The output will look something like this:
 
-```bash
+```
 Classifying CPP on 27 variables over 1736 peptides................done.
 Saved model and error estimates to examples/model_CPP.txt.
 Training set classification error: 0.00633641
@@ -136,6 +145,20 @@ best results with the respective fragments the probability for CPP (P0), the pro
 for efficiency (P1) and the joint probability P(all) followed by a prediction for the
 alpha-helical content of your peptide.
 
+## Predict
+
+In case you only want to run prediction on a set of sequences you can use the
+`predict` program. Predict is called in the following way:
+
+```bash
+./predict data_dir 'C1 (C2) ...' data_file1 data_file2 ...
+```
+
+Here data_dir again is the directory with you positive and negative examples or
+cached model files. C1 to Cn are the classes you want to predict. This is followed
+by a list of data files in txt or fasta format. Predict will train a classifier
+using the files in data_dir (or use a cached model if existing) and predict the average
+P(C1,...,Cn) for each data file.
 
 Contributors
 ------------
