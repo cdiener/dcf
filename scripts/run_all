@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+echo "Running PFAM analysis. This will take a looong time..."
+echo "------------------------------------------------------"
+Rscript pfam.R
+echo "------------------------------------------------------"
+echo ""
+echo "Running optimization benchmark."
+echo "------------------------------------------------------"
+Rscript bechmark.R
+echo "------------------------------------------------------"
+echo ""
+echo "Analyzing minimal inhibtory concentrations (MICs)."
+echo "------------------------------------------------------"
+Rscript mics.R
+echo "------------------------------------------------------"
+echo ""
+echo "Analyzing DNA binding."
+echo "------------------------------------------------------"
+Rscript emsa.R
+echo "------------------------------------------------------"
+echo ""
