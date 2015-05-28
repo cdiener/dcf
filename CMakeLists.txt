@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(modes)
+project(dcf)
 
 #Some Paths config
-set(MODES_SRC ${CMAKE_SOURCE_DIR}/src)
+set(DCF_SRC ${CMAKE_SOURCE_DIR}/src)
 
-include_directories(${MODES_SRC})
-include_directories(${MODES_SRC}/alglib)
+include_directories(${DCF_SRC})
+include_directories(${DCF_SRC}/alglib)
 include_directories(${CMAKE_BINARY_DIR}/config)
-add_subdirectory(${MODES_SRC}/alglib)
+add_subdirectory(${DCF_SRC}/alglib)
 
 set(CMAKE_BUILD_TYPE Release)
 
@@ -31,11 +31,11 @@ add_definitions(-std=c++11 -pipe -fstack-protector --param=ssp-buffer-size=4 -D_
 file(COPY examples DESTINATION .)
 file(COPY scripts DESTINATION .)
 file(COPY src/blosum80.qij DESTINATION .)
-configure_file( ${MODES_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_config.h )
+configure_file( ${DCF_SRC}/sys_config.h.in ${CMAKE_BINARY_DIR}/config/sys_config.h )
 
 #Build program
-add_executable(modes src/main.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
-target_link_libraries(modes ${LIBS})
+add_executable(dcf src/main.cxx src/iztli.cxx src/trainer.cxx src/design.cxx)
+target_link_libraries(dcf ${LIBS})
 
 #Build predict
 add_executable(predict src/predict.cxx src/iztli.cxx src/trainer.cxx)

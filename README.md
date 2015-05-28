@@ -1,35 +1,36 @@
-modes
-=====
+Peptide design with compatible functions
+========================================
 
 A multi-objective optimizer for the creation of peptide sequences mimicking
-a set of reference peptides.
+a set of reference peptides and joining several functional domains.
 
 How does it work?
 -----------------
 
-`modes` allows you to generate a new joint peptide from a set of domains that
+`dcf` allows you to generate a new joint peptide from a set of domains that
 should be included in the new peptide and a list of reference peptides which are
 ultimately used to create the joining peptide fragments. Thus, given an input set
 of reference sequences `S` consiting of positive and negative examples to be mimicked
-`modes` and a list of short peptide domains `D`=d_i, modes generates a set of fragments f_i
+`dcf` and a list of short peptide domains `D`=d_i, dcf generates a set of fragments f_i
 yielding the joined peptide `f_1-d_1-f_2-d_2-...-f_n-d_n-f_{n+1}` with the 
 highest probability of belonging to `S`. The multi-objective capabilities allow you 
 to optimize the fragments for a set of proteins types `S` simultaneously, where
 the optimized quantity is the joint probability.
 
-In order to achieve its goal `modes` combines classification using random forests 
+In order to achieve its goal `dcf` combines classification using random forests 
 on the reference sequences on a set of 26 physiochemical properties of the proteins 
 with a gloabl optimization strategy using simulated annealing with energy landscape
-pavement. Here `modes` runs all thos processes in parallel allowing large scale
+pavement. Here `dcf` runs all thos processes in parallel allowing large scale
 design experiments.
 
 
 Installation
 ------------
 
-In order to compile `modes` you will need more-or-less recent C++ compiler
-and Cmake (current versions of gcc or clang are perfect). For Linux cmake can
-be installed with your package manager. `modes` is currently only tested on cmake.
+In order to compile `dcf` you will need more-or-less recent C++ compiler with 
+OpenMP support (currently this does include gcc but not clang) and cmake. 
+For Linux cmake can be installed with your package manager. 
+`dcf` is currently only tested on Linux.
 
 In order to install git clone or unpack the downloaded zip of this repository.
 
@@ -38,19 +39,20 @@ A typical build could be run on Debian or Ubuntu like this for instance:
 ```bash
 sudo apt-get install cmake build-essential git
 cd ~/code
-git clone https://github.com/cdiener/modes.git 
-cd modes
+git clone https://github.com/cdiener/dcf.git 
+cd dcf
 mkdir bin && cd bin
 cmake ..
 make
 ```
 
-This will install `modes` into you home directory under code/modes/bin. This will
-be sufficient to run `modes`. From within that directory. To run it wherever you can
-add it to you path with (add this line to your ~/.bashrc to make it permanent)
+This will install `dcf` into you home directory under code/dcf/bin. This will
+be sufficient to run `dcf`. From within that directory. To run it in arbitrary 
+directories you can add it to you path with (add this line to your 
+~/.bashrc to make it permanent):
 
 ```bash
-export PATH=PATH:~/code/modes/bin
+export PATH=PATH:~/code/dcf/bin
 ``` 
 
 If you additionally want to run the scripts reproducing
@@ -59,7 +61,7 @@ To install R and all of its additional required packages use:
 
 ```bash
 sudo apt-get install r-base r-base-dev
-cd ~/code/modes/bin/scripts
+cd ~/code/dcf/bin/scripts
 ./install_scripts
 ```
 
@@ -70,7 +72,7 @@ Usage
 
 ## Design
 
-In order to work `modes` requires the following things
+In order to work `dcf` requires the following things
 
 1. A text (one sequence per line) or fasta file with the domains to be joined
 2. One or more pairs of text or fasta files containing positive and negative 
@@ -80,9 +82,9 @@ In order to work `modes` requires the following things
 3. For n domains you have to chose the n+1 maximum lengths of the joining 
    fragments k(1) to k(n+1).
 
-If you have all those things you can call modes with
+If you have all those things you can call dcf with
 ```bash
-./modes domain_file 'k(1) ... k(n+1)' n_it ref_dir NAME1 NAME2 ...
+./dcf domain_file 'k(1) ... k(n+1)' n_it ref_dir NAME1 NAME2 ...
 ``` 
 
 Here, domain_file is the field containing you domains, the quoted k's are the 
@@ -100,7 +102,7 @@ the files are provided in the example folder and we can run the entire work
 flow with:
 
 ```bash
-./modes examples/alpha_NLS.txt '4 4 0' 2000 examles CPP efficiency
+./dcf examples/alpha_NLS.txt '4 4 0' 2000 examles CPP efficiency
 ```
 
 This will run 2000 iterations of optimization and show you the resulting
@@ -127,7 +129,7 @@ Iter: 0 (0 accepted) | Current: PKKKRKVWHWLQLKPGQPMY (E = 0.469) | best P(CPP): 
 
 
 Best sequences found: 
-Links            P0      P1      P(all)  %α
+Links            P0      P1      P(all)  %alpha
 NRKR RWKR _      0.915   0.86    0.787   0.6
 NKRR RWKR _      0.915   0.86    0.787   0.6
 NRKK RWRR _      0.915   0.86    0.787   0.6
