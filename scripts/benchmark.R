@@ -20,7 +20,7 @@ if( file.exists("bench_data.Rd") ){
 	{
 		pep = paste( sample(AA,16,replace=TRUE), collapse='' )
 		write( pep, file=sprintf("seqs/random%d.txt", i) )
-		system( sprintf("./modes seqs/random%d.txt '%d %d' %d ../examples CPP > /dev/null", 
+		system( sprintf("./dcf seqs/random%d.txt '%d %d' %d ../examples CPP > /dev/null", 
 				i, 1, 1, 1) )
 		
 		logf = read.table("log.txt", header=TRUE)
@@ -56,7 +56,7 @@ fragment_plot = ggplot(bench, aes(x=factor(length), y=P_CPP, group=length)) +
 ggsave(fragment_plot, file="benchmark.svg", width=6, height=4)
 
 
-system("./modes ../examples/alpha.txt '4 4' 500 ../examples CPP")
+system("./dcf ../examples/alpha.txt '4 4' 500 ../examples CPP")
 logf = read.table("log.txt", header=TRUE)
 
 iter_plot = ggplot(logf, aes(x=iter, y=current_E)) + geom_line() + 

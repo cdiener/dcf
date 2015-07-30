@@ -3,9 +3,20 @@ PFAM_NAMESPACE = c(p = "http://pfam.xfam.org/")
 
 get_prob = function(file_path)
 {
-	if( !file.exists( "pfam_data.txt" ) ) {
-		output = system( sprintf("./predict ../examples 'CPP efficiency' %s/*.fasta > pfam_data.txt", 
-						file_path), intern=TRUE )
+    broken = !file.exists("pfam_data.txt")
+    nf = as.numeric(system(sprintf("ls -1 %s/*.fasta | wc -l", file_path), intern=TRUE))
+    if(file.exists("pfam_data.txt")) {
+        nl = length(readLines("pfam_data.txt"))
+        nf = as.numeric(system(sprintf("ls -1 %s/*.fasta | wc -l", file_path), intern=TRUE))
+        broken = !(nl==nf)
+        if(broken) {
+            warning("pfam_data.txt is broken. Will be removed and regenerated!")
+            file.remove("pfam_data.txt")
+        }
+    }
+	if( broken ) {
+		system( sprintf("./predict ../examples 'CPP efficiency' '%s'/*.fasta | 
+            pv -s %d -l > pfam_data.txt", file_path, nf))
 	}
 	
 	df = read.table("pfam_data.txt", header=F)
@@ -67,7 +78,7 @@ get_go = function(family_name, type="function")
 
 system("mkdir pfam 2> /dev/null")
 get_pfam()
-cat("Getting predictions\n")
+cat("Getting predictions. This will take a while...\n")
 pfam = get_prob(DATA_DIR)
 pfam = pfam[order(pfam$P_CPP, decreasing=TRUE),]
 cpp = pfam[pfam$P_CPP>0.5,]

@@ -3,7 +3,7 @@
 echo "Creating symlinks..."
 ln -s ../pfam_splitter pfam_splitter
 ln -s ../predict predict
-ln -s ../modes modes
+ln -s ../dcf dcf
 ln -s ../blosum80.qij blosum80.qij
 
 # Check for R and install dependencies
