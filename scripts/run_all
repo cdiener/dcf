@@ -7,7 +7,7 @@ echo "------------------------------------------------------"
 echo ""
 echo "Running optimization benchmark."
 echo "------------------------------------------------------"
-Rscript bechmark.R
+Rscript benchmark.R
 echo "------------------------------------------------------"
 echo ""
 echo "Analyzing minimal inhibtory concentrations (MICs)."
