@@ -30,8 +30,8 @@ Installation
 ------------
 
 In order to compile `dcf` you will need more-or-less recent C++ compiler with 
-OpenMP support (currently this does include gcc but not clang) and cmake. 
-For Linux cmake can be installed with your package manager. 
+C++11 and OpenMP support (currently this does include gcc 4.7+ and clang 3.7+) 
+as well as cmake. For Linux cmake can be installed with your package manager. 
 `dcf` is currently only tested on Linux.
 
 In order to install git clone or unpack the downloaded zip of this repository.
