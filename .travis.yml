@@ -1,0 +1,10 @@
+language: cpp
+
+sudo: false
+before_install:
+    - apt-get update -qq
+    - apt-get install cmake -qq
+compiler: gcc
+script: 
+    - mkdir build && cd build
+    - cmake .. && make
