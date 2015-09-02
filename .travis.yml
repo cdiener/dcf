@@ -3,8 +3,11 @@ language: cpp
 sudo: false
 addons:
     apt:
+        sources:
+            - ubuntu-toolchain-r-test
         packages:
             - cmake
+            - gcc-4.8
             - g++-4.8
 compiler: gcc
 before_install: 
