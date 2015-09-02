@@ -1,4 +1,4 @@
-Peptide design with compatible functions
+Peptide design by compatible functions
 ========================================
 
 A multi-objective optimizer for the creation of peptide sequences mimicking
