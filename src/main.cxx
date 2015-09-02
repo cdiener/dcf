@@ -59,7 +59,7 @@ int main (int argc, char* argv[])
 	if(argc<6)
 	{		
 		cerr<<"Missing arguments! Need at least 5!"<<endl;
-		cout<<"Usage: ./modes sequence_file \'l1 l2 ...\' n_iter data_dir C1 (C2)"<<endl;
+		cout<<"Usage: dcf sequence_file \'l1 l2 ...\' n_iter data_dir C1 (C2)"<<endl;
 
 		return 1;
 	}

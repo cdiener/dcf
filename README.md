@@ -1,10 +1,11 @@
 [![Build Status](https://travis-ci.org/cdiener/dcf.svg?branch=master)](https://travis-ci.org/cdiener/dcf)
 
 Peptide design by compatible functions
-========================================
+======================================
 
 A multi-objective optimizer for the creation of peptide sequences mimicking
 a set of reference peptides and joining several functional domains.
+
 
 How does it work?
 -----------------
@@ -25,9 +26,30 @@ with a gloabl optimization strategy using simulated annealing with energy landsc
 pavement. Here `dcf` runs all thos processes in parallel allowing large scale
 design experiments.
 
+Organization of the project
+---------------------------
+
+The project source is organized in the following manner:
+- `src` containes the C++ source code for the alglib libary, dcf, prediction
+   and tests.
+- `examples` contains positive and negative examples for CPPs, highly-efficient
+   CPPs and membrane-binding peptides as well as some templates (alpha-factor 
+   and NLS).
+- `scripts` contains additional analysis scripts and data to reproduce the
+  the results and figures from the paper.
+
 
 Installation
 ------------
+
+### Using a precompiled version (currently only AMD64)
+
+If you use a 64-bit Linux you can download an already [built version for your
+architecture](https://github.com/cdiener/dcf/releases). This includes all the
+compiled programs, scripts and data. If you want to run the additional
+R scripts you will also have to follow the steps described below.
+
+### Building from source
 
 In order to compile `dcf` you will need more-or-less recent C++ compiler with 
 C++11 and OpenMP support (currently this does include gcc 4.7+ and clang 3.7+) 
@@ -56,6 +78,8 @@ directories you can add it to you path with (add this line to your
 ```bash
 export PATH=PATH:~/code/dcf/bin
 ``` 
+
+### Running the additional analysis
 
 If you additionally want to run the scripts reproducing
 the analysis in the publication you will also need R and some of its packages.
@@ -167,4 +191,4 @@ P(C1,...,Cn) for each data file.
 Contributors
 ------------
 
-* Creator: Dr. Christian Diener (ch.diener[-at-]gmail.com)
+* Creator: Christian Diener (ch.diener[-at-]gmail.com)
