@@ -25,24 +25,33 @@ get_prob = function(file_path)
 	return( df )
 }
 
-get_pfam = function()
+get_pfam = function(release="current")
 {
 	setwd(DATA_DIR)
 	
+    if(release == "current") ver = "current_release"
+    else ver = paste0("releases",release)
+    
 	# Download Pfam data if necessary
-	if( length(dir(".", ".fasta$"))==0 && !file.exists("Pfam-A.fasta.gz") )
+	if( length(dir(".", ".fasta$")) == 0 && !file.exists("Pfam-A.fasta.gz") )
 	{
-		system("wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.fasta.gz")
+        write("Downloading PFAM...", file="")
+		system(sprintf("wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/%s/
+            Pfam-A.fasta.gz", ver))
 	}
 	
 	# Unpack Pfam data if necessary
 	if( file.exists("Pfam-A.fasta.gz") && !file.exists("Pfam-A.fasta") )
 	{
+        write("Unpacking PFAM...", file="")
 		system("gzip -d Pfam-A.fasta.gz")
 	}
 	
 	if( file.exists("Pfam-A.fasta") ) 
+    {
+        write("Splitting PFAM...", file="")
 		system("../pfam_splitter Pfam-A.fasta && rm Pfam-A.fasta")
+    }
 	
 	setwd("..")
 }
