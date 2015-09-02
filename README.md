@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/cdiener/dcf.svg?branch=master)](https://travis-ci.org/cdiener/dcf)
+
 Peptide design by compatible functions
 ========================================
 
