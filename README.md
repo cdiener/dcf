@@ -32,8 +32,8 @@ Organization of the project
 ---------------------------
 
 The project source is organized in the following manner:
-- `src` containes the C++ source code for the alglib libary, dcf, prediction
-   and tests.
+- `src` containes the C++ source code for the alglib library, dcf, prediction,
+   feature calculation and tests.
 - `examples` contains positive and negative examples for CPPs, highly-efficient
    CPPs and membrane-binding peptides as well as some templates (alpha-factor 
    and NLS).
