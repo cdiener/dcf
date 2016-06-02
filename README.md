@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/cdiener/dcf.svg?branch=master)](https://travis-ci.org/cdiener/dcf)
 [![DOI](https://zenodo.org/badge/18088/cdiener/dcf.svg)](https://zenodo.org/badge/latestdoi/18088/cdiener/dcf)
+[![publication](https://img.shields.io/badge/paper-10.1371%2Fjournal.pcbi.1004786-brightgreen.svg)](http://dx.doi.org/10.1371/journal.pcbi.1004786)
 
 
 Peptide design by compatible functions
@@ -7,6 +8,12 @@ Peptide design by compatible functions
 
 A multi-objective optimizer for the creation of peptide sequences mimicking
 a set of reference peptides and joining several functional domains.
+
+This software can be cited using the DOI provided above or as
+
+> Diener C, Garza Ramos Martínez G, Moreno Blas D, Castillo González DA, Corzo G, Castro-Obregon S, et al. (2016) 
+> Effective Design of Multifunctional Peptides by Combining Compatible Functions. 
+> PLoS Comput Biol 12(4): e1004786. 
 
 
 How does it work?
